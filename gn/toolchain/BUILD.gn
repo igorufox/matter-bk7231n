@@ -1,0 +1,18 @@
+import("//build_overrides/build.gni")
+import("//build_overrides/chip.gni")
+import("${build_root}/toolchain/gcc_toolchain.gni")
+
+# Windows arm-none-eabi GCC 10.3.1 of PlatformIO, called from WSL through tools/wingcc.sh
+_wrap = rebase_path("//../tools/wingcc.sh")
+
+gcc_toolchain("bk7231n") {
+  ar = "${_wrap} ar"
+  cc = "${_wrap} gcc"
+  cxx = "${_wrap} g++"
+
+  toolchain_args = {
+    current_os = "freertos"
+    current_cpu = "arm"
+    is_clang = false
+  }
+}

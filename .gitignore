@@ -1,0 +1,20 @@
+# build output (libMatterApp.a lands in out/<config>/lib)
+/out/
+/pio-build/
+/compile_commands.json
+/flags-dump.txt
+/pio-compiledb.log
+
+# local tools: Python venv for WSL, prebuilt gn / zap binaries, header probes
+/.venv-wsl/
+/tagprobe/
+/tools/zap/
+/tools/deb/
+/tools/gnroot/
+
+# connectedhomeip is a separate checkout (see README.md), linked here
+/gn/third_party/connectedhomeip
+
+# backups
+*.orig
+*.bak-*

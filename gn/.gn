@@ -1,0 +1,12 @@
+# GN root for the BK7231N (BDK 3.0.33 / LibreTiny) Matter build.
+# Run from WSL: see ../tools/build.sh
+import("//build_overrides/build.gni")
+
+buildconfig = "${build_root}/config/BUILDCONFIG.gn"
+check_system_includes = true
+
+default_args = {
+  target_cpu = "arm"
+  target_os = "freertos"
+  import("//args.gni")
+}

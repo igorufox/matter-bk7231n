@@ -1,0 +1,90 @@
+# BK7231N platform layer: copy of connectedhomeip v1.4.2.0 src/platform/Beken (ARMINO) without BLE,
+# vendor calls go through matter_pal.h (BDK 3.0.33 + the ARMINO API to port, bk7231n_port.c).
+import("//build_overrides/chip.gni")
+
+import("${chip_root}/build/chip/buildconfig_header.gni")
+import("${chip_root}/src/lib/core/core.gni")
+import("${chip_root}/src/platform/device.gni")
+
+_p = "external_platform/BK7231N"
+
+buildconfig_header("custom_buildconfig") {
+  header = "CHIPDeviceBuildConfig.h"
+  header_dir = "platform"
+
+  defines = [
+    "CHIP_DEVICE_CONFIG_ENABLE_WPA=false",
+    "CHIP_ENABLE_OPENTHREAD=false",
+    "CHIP_DEVICE_CONFIG_THREAD_FTD=false",
+    "OPENTHREAD_CONFIG_ENABLE_TOBLE=false",
+    "CHIP_BYPASS_RENDEZVOUS=false",
+    "CHIP_STACK_LOCK_TRACKING_ENABLED=false",
+    "CHIP_STACK_LOCK_TRACKING_ERROR_FATAL=false",
+    "CHIP_ENABLE_ADDITIONAL_DATA_ADVERTISING=false",
+    "CHIP_DEVICE_CONFIG_RUN_AS_ROOT=false",
+    "CHIP_DEVICE_LAYER_TARGET_BK7231N=1",
+    "CHIP_DEVICE_LAYER_TARGET=BK7231N",
+    "CHIP_USE_TRANSITIONAL_COMMISSIONABLE_DATA_PROVIDER=1",
+    "CHIP_USE_TRANSITIONAL_DEVICE_INSTANCE_INFO_PROVIDER=1",
+    "CHIP_DEVICE_CONFIG_ENABLE_WIFI=1",
+    "CHIP_DEVICE_CONFIG_ENABLE_CHIPOBLE=0",
+    "BLE_PLATFORM_CONFIG_INCLUDE=<${_p}/BlePlatformConfig.h>",
+    "CHIP_DEVICE_PLATFORM_CONFIG_INCLUDE=<${_p}/CHIPDevicePlatformConfig.h>",
+    "CHIP_PLATFORM_CONFIG_INCLUDE=<${_p}/CHIPPlatformConfig.h>",
+    "INET_CONFIG_INCLUDE=<${_p}/InetPlatformConfig.h>",
+    "SYSTEM_PLATFORM_CONFIG_INCLUDE=<${_p}/SystemPlatformConfig.h>",
+    "EXTERNAL_CONFIGURATIONMANAGERIMPL_HEADER=<${_p}/ConfigurationManagerImpl.h>",
+    "EXTERNAL_CHIPDEVICEPLATFORMEVENT_HEADER=<${_p}/CHIPDevicePlatformEvent.h>",
+    "EXTERNAL_CONNECTIVITYMANAGERIMPL_HEADER=<${_p}/ConnectivityManagerImpl.h>",
+    "EXTERNAL_BLEMANAGERIMPL_HEADER=<${_p}/BLEManagerImpl.h>",
+    "EXTERNAL_KEYVALUESTOREMANAGERIMPL_HEADER=<${_p}/KeyValueStoreManagerImpl.h>",
+    "EXTERNAL_PLATFORMMANAGERIMPL_HEADER=<${_p}/PlatformManagerImpl.h>",
+    "CHIP_DEVICE_CONFIG_MAX_DISCOVERED_IP_ADDRESSES=5",
+  ]
+  if (chip_enable_ota_requestor) {
+    defines += [ "CHIP_DEVICE_CONFIG_ENABLE_OTA_REQUESTOR=1" ]
+  }
+}
+
+group("platform_buildconfig") {
+  public_deps = [ ":custom_buildconfig" ]
+}
+
+static_library("BK7231N") {
+  sources = [
+    "${chip_root}/src/platform/SingletonConfigurationManager.cpp",
+    "BekenConfig.cpp",
+    "CHIPMem-Platform.cpp",
+    "ConfigurationManagerImpl.cpp",
+    "ConnectivityManagerImpl.cpp",
+    "DiagnosticDataProviderImpl.cpp",
+    "KeyValueStoreManagerImpl.cpp",
+    "Logging.cpp",
+    "LwIPCoreLock.cpp",
+    "NetworkCommissioningWiFiDriver.cpp",
+    "PlatformManagerImpl.cpp",
+    "SystemTimeSupport.cpp",
+  ]
+  if (chip_enable_ota_requestor) {
+    sources += [ "OTAImageProcessorImpl.cpp" ]
+  }
+
+  deps = [
+    "${chip_root}/src/app:app_config",
+    "${chip_root}/src/app/common:ids",
+    "${chip_root}/src/lib/dnssd:platform_header",
+    "${chip_root}/src/platform/logging:headers",
+    "${chip_root}/src/setup_payload",
+  ]
+
+  public_deps = [
+    ":platform_buildconfig",
+    "${chip_root}/src/crypto",
+    "${chip_root}/src/platform:platform_base",
+  ]
+}
+
+# The ARMINO API of matter_pal.h on BDK: stubs for now (sizing)
+static_library("bk7231n_port") {
+  sources = [ "bk7231n_port.c" ]
+}

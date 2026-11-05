@@ -1,0 +1,30 @@
+/* ARMINO API used by the Beken Matter platform layer, on BDK 3.0.33. STUBS for the sizing build:
+ * every function here is a porting item (Wi-Fi STA/scan/events, namespace KV, OTA partition, entropy). */
+#include "matter_pal.h"
+#include <string.h>
+
+bk_err_t bk_event_register_cb(event_module_t module, int event_id, event_cb_t cb, void * arg) { return BK_OK; }
+bk_err_t bk_event_unregister_cb(event_module_t module, int event_id, event_cb_t cb) { return BK_OK; }
+
+bk_err_t bk_wifi_sta_set_config(const wifi_sta_config_t * config) { return BK_FAIL; }
+bk_err_t bk_wifi_sta_start(void) { return BK_FAIL; }
+bk_err_t bk_wifi_sta_connect(void) { return BK_FAIL; }
+bk_err_t bk_wifi_sta_get_link_status(wifi_link_status_t * status) { memset(status, 0, sizeof(*status)); return BK_FAIL; }
+bk_err_t bk_wifi_sta_get_mac(uint8_t * mac) { memset(mac, 0, 6); return BK_FAIL; }
+
+bk_err_t bk_wifi_scan_start(const wifi_scan_config_t * config) { return BK_FAIL; }
+bk_err_t bk_wifi_scan_get_result(wifi_scan_result_t * result) { result->ap_num = 0; result->aps = NULL; return BK_FAIL; }
+void bk_wifi_scan_free_result(wifi_scan_result_t * result) {}
+
+int bk_read_data(const char * ns, const char * name, char * buf, uint32_t len, uint32_t * out_len) { if (out_len) *out_len = 0; return -1; }
+int bk_write_data(const char * ns, const char * name, const char * buf, uint32_t len) { return -1; }
+int bk_clean_data(const char * ns, const char * name) { return -1; }
+int bk_ensure_namespace(const char * ns) { return -1; }
+int bk_ensure_name_data(const char * ns, const char * name) { return -1; }
+int bk_erase_all(int partition) { return -1; }
+
+int bk_write_ota_data_to_flash(char * buf, uint32_t offset, uint32_t len) { return -1; }
+int bk_read_ota_data_in_flash(char * buf, uint32_t offset, uint32_t len) { return -1; }
+void bk_erase_ota_data_in_flash(void) {}
+int bK_clear_namespace(const char * ns) { return -1; }
+size_t prvHeapGetTotalSize(void) { return 0; }

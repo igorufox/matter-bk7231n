@@ -1,0 +1,21 @@
+import("//build_overrides/chip.gni")
+
+
+static_library("MatterApp") {
+  sources = [
+    "BekenAppServer.cpp",
+    "CHIPDeviceManager.cpp",
+    "CommonDeviceCallbacks.cpp",
+    "OTAHelper.cpp",
+    "matter_app.cpp",
+  ]
+  public_deps = [
+    "//:plug-data-model",
+    "${chip_root}/src/lib",
+    "${chip_root}/src/setup_payload",
+    "//external_platform/BK7231N:bk7231n_port",
+  ]
+  output_name = "libMatterApp"
+  output_dir = "${root_out_dir}/lib"
+  complete_static_lib = true
+}

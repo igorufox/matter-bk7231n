@@ -1,0 +1,77 @@
+# Build arguments for the BK7231N Matter libraries (ARM968E-S, ARMv5TE, Thumb, BDK 3.0.33 / LibreTiny 1.14)
+import("//build_overrides/chip.gni")
+import("//bdk/bdk_flags.gni")
+
+custom_toolchain = "//toolchain:bk7231n"
+
+# CPU: same as LibreTiny for BK7231N (-mcpu=arm968e-s -march=armv5te -mthumb -mthumb-interwork)
+arm_arch = "armv5te"
+arm_cpu = "arm968e-s"
+arm_float_abi = "soft"
+arm_use_thumb = true
+
+is_debug = false
+optimize_debug = false
+optimize_for_size = true
+symbol_level = 1
+
+target_defines = []
+target_cflags = [
+                  "-mthumb-interwork",
+                  "-fno-common",
+                  "-fsigned-char",
+                  "-ffunction-sections",
+                  "-fdata-sections",
+                ] + bdk_defines + bdk_include_flags
+target_cflags_c = []
+target_cflags_cc = [
+  "-fno-rtti",
+  "-fno-exceptions",
+]
+
+# Platform layer: ours, outside the SDK tree (//external_platform/BK7231N)
+chip_device_platform = "external"
+chip_platform_target = "//external_platform/BK7231N"
+chip_external_platform_include_dir = "//"
+
+chip_project_config_include = ""
+chip_system_project_config_include = ""
+chip_ble_project_config_include = ""
+
+# lwIP 2.2.0 and FreeRTOS of LibreTiny (headers through target_cflags), mbedTLS 2.28 of the SDK (BDK has 2.6.0)
+lwip_platform = "external"
+chip_system_config_use_lwip = true
+chip_system_config_use_sockets = false
+mbedtls_target = "//mbedtls:mbedtls"
+
+chip_build_tests = false
+chip_build_libshell = false
+chip_config_enable_arg_parser = false
+
+# Wi-Fi only, on-network commissioning, no BLE / Thread
+chip_enable_wifi = true
+chip_enable_openthread = false
+chip_config_network_layer_ble = false
+chip_enable_ble = false
+chip_enable_additional_data_advertising = false
+chip_enable_rotating_device_id = false
+
+chip_inet_config_enable_ipv4 = true
+chip_inet_config_enable_tcp_endpoint = false
+chip_inet_config_enable_udp_endpoint = true
+chip_mdns = "minimal"
+
+chip_config_memory_management = "platform"
+chip_enable_ota_requestor = true
+
+# logging: errors + progress, no detail/automation
+chip_logging = true
+chip_detail_logging = false
+chip_automation_logging = false
+chip_enable_transport_trace = false
+
+chip_stack_lock_tracking = "none"
+chip_use_transitional_commissionable_data_provider = true
+
+treat_warnings_as_errors = false
+chip_system_config_provide_statistics = false
