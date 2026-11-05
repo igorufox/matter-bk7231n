@@ -10,7 +10,10 @@ static_library("MatterApp") {
     "matter_app.cpp",
   ]
   public_deps = [
-    "//:plug-data-model",
+    "${chip_root}/examples/bk7231n-plug:plug-data-model",
+    "${chip_root}/src/app/clusters/basic-information",
+    "${chip_root}/src/app/persistence",
+    "${chip_root}/src/app/persistence:singleton",
     "${chip_root}/src/lib",
     "${chip_root}/src/setup_payload",
     "//external_platform/BK7231N:bk7231n_port",

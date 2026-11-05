@@ -28,6 +28,14 @@ extern "C" int bk_read_data(const char * ns, const char * name, char * buf, uint
 #include <setup_payload/ManualSetupPayloadGenerator.h>
 #include <setup_payload/QRCodeSetupPayloadGenerator.h>
 
+#include <app/AttributeValueDecoder.h>
+#include <app/clusters/basic-information/BasicInformationCluster.h>
+#include <app/data-model-provider/OperationTypes.h>
+#include <app/persistence/AttributePersistence.h>
+#include <app/persistence/AttributePersistenceProviderInstance.h>
+#include <app/persistence/String.h>
+#include <lib/core/TLV.h>
+
 #include <cstring>
 #include <string>
 
@@ -184,6 +192,44 @@ bool BuildPayload(SetupPayload & payload)
     return true;
 }
 
+// NodeLabel = the ESPurna hostname while no controller has written one
+void SetDefaultNodeLabel(const char * name)
+{
+    const CharSpan wanted(name, strnlen(name, 32));
+    // code-driven Basic Information cluster (connectedhomeip 1.5), no ember accessors. Read the stored label, and write
+    // the default the way a controller would (memory and persistence of the cluster stay in step)
+    Storage::String<32> stored;
+    AttributePersistence persistence(*GetAttributePersistenceProvider());
+    persistence.LoadString({ kRootEndpointId, Clusters::BasicInformation::Id, Clusters::BasicInformation::Attributes::NodeLabel::Id },
+                           stored);
+    if (!stored.Content().empty())
+    {
+        return;
+    }
+
+    uint8_t buffer[48];
+    TLV::TLVWriter writer;
+    writer.Init(buffer);
+    if (writer.PutString(TLV::AnonymousTag(), wanted) != CHIP_NO_ERROR || writer.Finalize() != CHIP_NO_ERROR)
+    {
+        return;
+    }
+
+    TLV::TLVReader reader;
+    reader.Init(buffer, writer.GetLengthWritten());
+    if (reader.Next() != CHIP_NO_ERROR)
+    {
+        return;
+    }
+
+    Access::SubjectDescriptor subject;
+    AttributeValueDecoder decoder(reader, subject);
+    DataModel::WriteAttributeRequest request;
+    request.path = ConcreteDataAttributePath(kRootEndpointId, Clusters::BasicInformation::Id,
+                                             Clusters::BasicInformation::Attributes::NodeLabel::Id);
+    Clusters::BasicInformationCluster::Instance().WriteAttribute(request, decoder);
+}
+
 void InitServer(intptr_t)
 {
     BekenAppServer::Init(&sCommissioningDelegate);
@@ -199,14 +245,7 @@ void InitServer(intptr_t)
     // that reports one), until a controller writes its own
     if (matter_node_label)
     {
-        char label[33] = {};
-        MutableCharSpan current(label);
-        if ((Clusters::BasicInformation::Attributes::NodeLabel::Get(0, current) == Protocols::InteractionModel::Status::Success) &&
-            current.empty())
-        {
-            const char * name = matter_node_label();
-            Clusters::BasicInformation::Attributes::NodeLabel::Set(0, CharSpan(name, strnlen(name, 32)));
-        }
+        SetDefaultNodeLabel(matter_node_label());
     }
     // Wi-Fi belongs to ESPurna: Matter only listens to its connected / got IP events (bk_event_register_cb)
     ConnectivityMgr().SetWiFiStationMode(ConnectivityManager::kWiFiStationMode_Enabled);

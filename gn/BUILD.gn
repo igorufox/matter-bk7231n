@@ -1,15 +1,7 @@
 import("//build_overrides/build.gni")
 import("//build_overrides/chip.gni")
-import("${chip_root}/src/app/chip_data_model.gni")
 
-# Root node + On/Off Plug-in Unit 0x010A (chef rootnode_onoffpluginunit_Wtf8ss5EBY).
-# Lives in the root BUILD.gn: SDK targets allow "//.:*" in their visibility lists.
-chip_data_model("plug-data-model") {
-  zap_file = "app/plug.zap"
-  idl = "app/plug.matter"
-  is_server = true
-}
-
+# The data model is in chip-examples/bk7231n-plug (copied into connectedhomeip/examples by tools/build.sh)
 group("default") {
   deps = [ "//app:MatterApp" ]
 }

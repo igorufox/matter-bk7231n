@@ -14,17 +14,25 @@ with an On/Off plug (one endpoint, `gn/app/plug.zap`) and a small C API that ESP
 - `tools/` - `build.sh` (WSL: gn + ninja with the Windows arm-none-eabi gcc through `wingcc.sh`), flag generators,
   size reports
 
-connectedhomeip is not part of this repository: a checkout of tag `v1.4.2.0` at `C:\working\ginhub\connectedhomeip`,
-linked as `gn/third_party/connectedhomeip`. Not committed either: `out/` (build output), `.venv-wsl/` (Python for the
-code generators), `tools/gnroot` (gn), `tools/zap` (zap-cli).
+connectedhomeip is not part of this repository: commit `b87051a95f` (Matter 1.5, the same commit as esp_matter 1.5.1
+of the ESP32 build of ESPurna) at `C:\working\ginhub\connectedhomeip-1.5` with the submodules nlassert, nlio, mbedtls,
+jsoncpp and pigweed, linked as `gn/third_party/connectedhomeip` (an NTFS junction: the Windows gcc can not follow a
+WSL symlink; `build.sh` makes it). The data model target (`gn/chip-examples/bk7231n-plug/BUILD.gn`) is copied into
+`<connectedhomeip>/examples/bk7231n-plug` by `build.sh`: since 1.5 a `chip_data_model` may use
+`src/app:required-privileges` only from there. Not committed either: `out/` (build output), `.venv-wsl/` (Python for
+the code generators, + `scripts/setup/requirements.build.txt` of connectedhomeip), `tools/gnroot` (gn),
+`tools/zap-2025.10.23` (zap-cli v2025.10.23-nightly, the version `scripts/setup/zap.version` asks for).
+
+`gn/app/plug.matter` is generated from `plug.zap` (after a connectedhomeip update: `scripts/tools/zap/convert.py` and
+`scripts/tools/zap/generate.py plug.zap -t src/app/zap-templates/matter-idl-server.json -o gn/app` of connectedhomeip).
 
 Build (WSL):
 
-    bash /mnt/c/working/ginhub/matter-bk7231n/tools/build.sh /mnt/c/working/ginhub/matter-bk7231n/out/plug-tuned
+    bash /mnt/c/working/ginhub/matter-bk7231n/tools/build.sh /mnt/c/working/ginhub/matter-bk7231n/out/plug-tuned-15
 
-Configs: `out/plug-tuned` (Quectel factory data of the board), `out/plug-test` (SDK test attestation, VID 0xFFF1 /
+Configs: `out/plug-tuned-15` (Quectel factory data of the board), `out/plug-test` (SDK test attestation, VID 0xFFF1 /
 PID 0x8001, `BK7231NProjectConfigTest.h`). A change of the project config or of `lwipopts.h` rebuilds most of the
-library (10-15 min).
+library (10-15 min). The last build on connectedhomeip v1.4.2.0 is commit `cefb35a`.
 
 Fixes that made the speaker hub keep the device (2026-11-05):
 - `lwip-override`: `PBUF_POOL_SIZE` 6 (was 3) - Matter's packet buffers come from this pool; at AddNOC it ran empty,

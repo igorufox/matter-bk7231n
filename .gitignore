@@ -9,6 +9,7 @@
 /.venv-wsl/
 /tagprobe/
 /tools/zap/
+/tools/zap-*/
 /tools/deb/
 /tools/gnroot/
 
