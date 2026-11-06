@@ -463,10 +463,11 @@ The STM32F107 allows computing and verifying the IP, UDP, TCP and ICMP checksums
 
 /* ESPurna + Matter on BK7231N: the RAM of the LibreTiny defaults above goes to Matter. Only sizes change here, no
  * option that changes a struct layout (libMatterApp.a was built against the original header). */
-/* 12 KB: the Wi-Fi RX path takes every frame from here, 8 KB ran full while commissioning (150-250 alloc errors = dropped
- * frames). ESPurna has the heap since the Matter data moved to TCM */
+/* 20 KB: the Wi-Fi RX path takes every frame from here. 8 KB, then 12 KB ran full while the hub commissioned a 4-relay
+ * bridge (10.0.5.116): received frames were dropped, the ACKs of matter-server with them, Matter's retransmission
+ * table filled up and the reply to the commissioner was never sent (the hub gave up at step 2) */
 #undef MEM_SIZE
-#define MEM_SIZE (12 * 1024)
+#define MEM_SIZE (20 * 1024)
 
 /* 4 segments per connection: the web page and MQTT, never more than a third of MEM_SIZE in flight */
 #undef TCP_SND_BUF
@@ -494,6 +495,8 @@ The STM32F107 allows computing and verifying the IP, UDP, TCP and ICMP checksums
 
 /* Matter's packet buffers come from this pool (CHIP v1.4.2 has no PBUF_RAM mode; the BDK Wi-Fi RX path allocates
  * PBUF_RAM from MEM_SIZE). 3 ran EMPTY at AddNOC: the AddNOC reply and the operational mDNS announcement were dropped and
- * the commissioner waited ~45 s, then removed its fabric. CHIP's own lwipopts use 6..18. */
+ * the commissioner waited ~45 s, then removed its fabric. CHIP's own lwipopts use 6..18. The retransmission table of
+ * Matter is PBUF_POOL_SIZE - 1 entries: 7 filled up with a bridge reporting to one controller while another one
+ * commissioned ("mRetransTable Already Full", "Failed to send InvokeResponse") -> 12 */
 #undef PBUF_POOL_SIZE
-#define PBUF_POOL_SIZE 8
+#define PBUF_POOL_SIZE 12
