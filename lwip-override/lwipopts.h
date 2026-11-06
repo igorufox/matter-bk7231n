@@ -472,6 +472,12 @@ The STM32F107 allows computing and verifying the IP, UDP, TCP and ICMP checksums
 #undef TCP_SND_QUEUELEN
 #define TCP_SND_QUEUELEN (16)
 
+/* The BDK Wi-Fi RX path takes every received frame from MEM_SIZE: a receive window above it lets a fast sender fill
+ * the heap while the board is busy (a web OTA writing flash), frames and ACKs fail to allocate and the upload stalls
+ * until the 5 s RX timeout. 3 segments, as LibreTiny's reduced memory plan has it */
+#undef TCP_WND
+#define TCP_WND (3 * TCP_MSS)
+
 #undef MAX_SOCKETS_TCP
 #define MAX_SOCKETS_TCP 8
 #undef MAX_SOCKETS_UDP
