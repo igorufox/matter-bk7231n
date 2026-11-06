@@ -1,30 +1,31 @@
 /* RAM profile for BK7231N inside ESPurna. Used both as the project config (CHIP_CONFIG_*, CHIP_IM_*) and as the
  * device project config (CHIP_DEVICE_CONFIG_*): gn args chip_project_config_include and
  * chip_device_project_config_include.
- * Bring-up profile: 2 fabrics (spec: 5) with the per-fabric minimums the SDK asserts (3 subscriptions of 3 paths,
- * 1 read of 9 paths per fabric). ESPurna leaves ~48 KB of heap
- * and the default pools take more than that. To be raised once it runs and the real heap use is known. */
+ * 5 fabrics (the spec minimum: the hub, matter-server and room for more) with the per-fabric minimums the SDK asserts
+ * (3 subscriptions of 3 paths, 1 read of 9 paths per fabric). The bring-up profile had 2 fabrics, 4 sessions and
+ * 6 exchanges ("mRetransTable Already Full" at CommissioningComplete); since the static data of the library is in the
+ * data TCM (ESPurna scripts/beken_tcm.py) the heap has ~40 KB to spare with Matter running. */
 #pragma once
 
-#define CHIP_CONFIG_MAX_FABRICS 2
-#define CHIP_CONFIG_SECURE_SESSION_POOL_SIZE 4
-#define CHIP_CONFIG_UNAUTHENTICATED_CONNECTION_POOL_SIZE 2
-#define CHIP_CONFIG_MAX_EXCHANGE_CONTEXTS 6
+#define CHIP_CONFIG_MAX_FABRICS 5
+#define CHIP_CONFIG_SECURE_SESSION_POOL_SIZE 8
+#define CHIP_CONFIG_UNAUTHENTICATED_CONNECTION_POOL_SIZE 4
+#define CHIP_CONFIG_MAX_EXCHANGE_CONTEXTS 12
 #define CHIP_CONFIG_MAX_GROUP_DATA_PEERS 2
 #define CHIP_CONFIG_MAX_GROUP_CONTROL_PEERS 1
 #define CHIP_CONFIG_DEVICE_MAX_ACTIVE_DEVICES 2
-#define CHIP_CONFIG_EXAMPLE_ACCESS_CONTROL_MAX_ENTRIES_PER_FABRIC 2
+#define CHIP_CONFIG_EXAMPLE_ACCESS_CONTROL_MAX_ENTRIES_PER_FABRIC 4
 
-#define CHIP_IM_MAX_NUM_SUBSCRIPTIONS 6
-#define CHIP_IM_MAX_NUM_READS 2
-#define CHIP_IM_SERVER_MAX_NUM_PATH_GROUPS_FOR_SUBSCRIPTIONS 18
-#define CHIP_IM_SERVER_MAX_NUM_PATH_GROUPS_FOR_READS 18
+#define CHIP_IM_MAX_NUM_SUBSCRIPTIONS 15
+#define CHIP_IM_MAX_NUM_READS 5
+#define CHIP_IM_SERVER_MAX_NUM_PATH_GROUPS_FOR_SUBSCRIPTIONS 45
+#define CHIP_IM_SERVER_MAX_NUM_PATH_GROUPS_FOR_READS 45
 #define CHIP_IM_SERVER_MAX_NUM_DIRTY_SET 4
 #define CHIP_IM_MAX_NUM_COMMAND_HANDLER 2
 #define CHIP_IM_MAX_NUM_WRITE_HANDLER 2
 #define CHIP_IM_MAX_NUM_WRITE_CLIENT 0
 #define CHIP_IM_MAX_NUM_TIMED_HANDLER 2
-#define CHIP_IM_MAX_REPORTS_IN_FLIGHT 2
+#define CHIP_IM_MAX_REPORTS_IN_FLIGHT 4
 
 #define CHIP_DEVICE_CONFIG_MAX_EVENT_QUEUE_SIZE 64
 #define CHIP_DEVICE_CONFIG_EVENT_LOGGING_CRIT_BUFFER_SIZE 512
@@ -45,9 +46,9 @@
 #endif
 
 
-/* Commissioning ran out of heap at AddNOC (mbedTLS MPI alloc failed with 2.2 KB left): 2 KB of the 8 KB task stack
- * back to the heap. The task stack is not measured yet (no uxTaskGetStackHighWaterMark in the BDK FreeRTOS) */
-#define CHIP_DEVICE_CONFIG_CHIP_TASK_STACK_SIZE 6144
+/* The SDK default 8 KB again: 6 KB was a cut when commissioning ran out of heap at AddNOC (before the TCM move). The task
+ * stack is not measured (no uxTaskGetStackHighWaterMark in the BDK FreeRTOS) */
+#define CHIP_DEVICE_CONFIG_CHIP_TASK_STACK_SIZE 8192
 
 /* Basic Information hardware version: "TEST_VERSION" is the SDK placeholder (the ESP32 lab board that the hub keeps reports 1 / "1") */
 #define CHIP_DEVICE_CONFIG_DEFAULT_DEVICE_HARDWARE_VERSION 1

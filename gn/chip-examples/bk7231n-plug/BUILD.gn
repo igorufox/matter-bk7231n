@@ -1,4 +1,5 @@
-# Data model of the plug: Root node + On/Off Plug-in Unit 0x010A (chef rootnode_onoffpluginunit_Wtf8ss5EBY).
+# Data model of the plug: Root node + On/Off Plug-in Unit 0x010A on endpoint 1 (chef rootnode_onoffpluginunit_Wtf8ss5EBY),
+# Aggregator on endpoint 2 and 4 Bridged Node plugs on 3..6 for boards with more relays (matter_app.cpp EnablePlugs()).
 # tools/build.sh copies this file to <connectedhomeip>/examples/bk7231n-plug/BUILD.gn: since connectedhomeip 1.5 a
 # chip_data_model target may depend on src/app:required-privileges only from //third_party/connectedhomeip/examples/*
 import("//build_overrides/build.gni")

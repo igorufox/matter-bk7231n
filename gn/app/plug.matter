@@ -1477,6 +1477,106 @@ cluster SoftwareDiagnostics = 52 {
   command access(invoke: manage) ResetWatermarks(): DefaultSuccess = 0;
 }
 
+/** This Cluster serves two purposes towards a Node communicating with a Bridge: indicate that the functionality on
+          the Endpoint where it is placed (and its Parts) is bridged from a non-CHIP technology; and provide a centralized
+          collection of attributes that the Node MAY collect to aid in conveying information regarding the Bridged Device to a user,
+          such as the vendor name, the model name, or user-assigned name. */
+cluster BridgedDeviceBasicInformation = 57 {
+  revision 5;
+
+  enum ColorEnum : enum8 {
+    kBlack = 0;
+    kNavy = 1;
+    kGreen = 2;
+    kTeal = 3;
+    kMaroon = 4;
+    kPurple = 5;
+    kOlive = 6;
+    kGray = 7;
+    kBlue = 8;
+    kLime = 9;
+    kAqua = 10;
+    kRed = 11;
+    kFuchsia = 12;
+    kYellow = 13;
+    kWhite = 14;
+    kNickel = 15;
+    kChrome = 16;
+    kBrass = 17;
+    kCopper = 18;
+    kSilver = 19;
+    kGold = 20;
+  }
+
+  enum ProductFinishEnum : enum8 {
+    kOther = 0;
+    kMatte = 1;
+    kSatin = 2;
+    kPolished = 3;
+    kRugged = 4;
+    kFabric = 5;
+  }
+
+  bitmap Feature : bitmap32 {
+    kBridgedICDSupport = 0x100000;
+  }
+
+  struct ProductAppearanceStruct {
+    ProductFinishEnum finish = 0;
+    nullable ColorEnum primaryColor = 1;
+  }
+
+  critical event StartUp = 0 {
+    int32u softwareVersion = 0;
+  }
+
+  critical event ShutDown = 1 {
+  }
+
+  info event Leave = 2 {
+  }
+
+  info event ReachableChanged = 3 {
+    boolean reachableNewValue = 0;
+  }
+
+  info event ActiveChanged = 128 {
+    int32u promisedActiveDuration = 0;
+  }
+
+  readonly attribute optional char_string<32> vendorName = 1;
+  readonly attribute optional vendor_id vendorID = 2;
+  readonly attribute optional char_string<32> productName = 3;
+  readonly attribute optional int16u productID = 4;
+  attribute access(write: manage) optional char_string<32> nodeLabel = 5;
+  readonly attribute optional int16u hardwareVersion = 7;
+  readonly attribute optional char_string<64> hardwareVersionString = 8;
+  readonly attribute optional int32u softwareVersion = 9;
+  readonly attribute optional char_string<64> softwareVersionString = 10;
+  readonly attribute optional char_string<16> manufacturingDate = 11;
+  readonly attribute optional char_string<32> partNumber = 12;
+  readonly attribute optional long_char_string<256> productURL = 13;
+  readonly attribute optional char_string<64> productLabel = 14;
+  readonly attribute optional char_string<32> serialNumber = 15;
+  readonly attribute boolean reachable = 17;
+  readonly attribute char_string<32> uniqueID = 18;
+  readonly attribute optional ProductAppearanceStruct productAppearance = 20;
+  provisional readonly attribute optional int32u configurationVersion = 24;
+  readonly attribute command_id generatedCommandList[] = 65528;
+  readonly attribute command_id acceptedCommandList[] = 65529;
+  readonly attribute attrib_id attributeList[] = 65531;
+  readonly attribute bitmap32 featureMap = 65532;
+  readonly attribute int16u clusterRevision = 65533;
+
+  request struct KeepActiveRequest {
+    int32u stayActiveDuration = 0;
+    int32u timeoutMs = 1;
+  }
+
+  /** Upon receipt, the server SHALL attempt to keep the bridged device active for the duration specified by the command, when the device is next active. */
+  command KeepActive(KeepActiveRequest): DefaultSuccess = 128;
+}
+
 /** Commands to trigger a Node to allow a new Administrator to commission it. */
 cluster AdministratorCommissioning = 60 {
   revision 1;
@@ -2166,6 +2266,442 @@ endpoint 1 {
     callback attribute attributeList;
     callback attribute featureMap;
     callback attribute clusterRevision;
+  }
+
+  server cluster ScenesManagement {
+    ram      attribute sceneTableSize default = 16;
+    callback attribute fabricSceneInfo;
+    callback attribute generatedCommandList;
+    callback attribute acceptedCommandList;
+    callback attribute attributeList;
+    ram      attribute featureMap default = 0;
+    ram      attribute clusterRevision default = 1;
+
+    handle command AddScene;
+    handle command AddSceneResponse;
+    handle command ViewScene;
+    handle command ViewSceneResponse;
+    handle command RemoveScene;
+    handle command RemoveSceneResponse;
+    handle command RemoveAllScenes;
+    handle command RemoveAllScenesResponse;
+    handle command StoreScene;
+    handle command StoreSceneResponse;
+    handle command RecallScene;
+    handle command GetSceneMembership;
+    handle command GetSceneMembershipResponse;
+  }
+}
+endpoint 2 {
+  device type ma_aggregator = 14, version 2;
+
+
+  server cluster Descriptor {
+    callback attribute deviceTypeList;
+    callback attribute serverList;
+    callback attribute clientList;
+    callback attribute partsList;
+    callback attribute generatedCommandList;
+    callback attribute acceptedCommandList;
+    callback attribute attributeList;
+    callback attribute featureMap;
+    callback attribute clusterRevision;
+  }
+}
+endpoint 3 {
+  device type ma_bridgednode = 19, version 3;
+  device type ma_onoffpluginunit = 266, version 3;
+
+  binding cluster Binding;
+
+  server cluster Identify {
+    callback attribute identifyTime;
+    callback attribute identifyType;
+    callback attribute generatedCommandList;
+    callback attribute acceptedCommandList;
+    callback attribute attributeList;
+    callback attribute featureMap;
+    callback attribute clusterRevision;
+
+    handle command Identify;
+  }
+
+  server cluster Groups {
+    ram      attribute nameSupport default = 0;
+    callback attribute generatedCommandList;
+    callback attribute acceptedCommandList;
+    callback attribute attributeList;
+    ram      attribute featureMap default = 0;
+    ram      attribute clusterRevision default = 3;
+
+    handle command AddGroup;
+    handle command AddGroupResponse;
+    handle command ViewGroup;
+    handle command ViewGroupResponse;
+    handle command GetGroupMembership;
+    handle command GetGroupMembershipResponse;
+    handle command RemoveGroup;
+    handle command RemoveGroupResponse;
+    handle command RemoveAllGroups;
+    handle command AddGroupIfIdentifying;
+  }
+
+  server cluster OnOff {
+    persist  attribute onOff default = 0;
+    ram      attribute globalSceneControl default = 1;
+    ram      attribute onTime default = 0;
+    ram      attribute offWaitTime default = 0;
+    persist  attribute startUpOnOff default = 0;
+    callback attribute generatedCommandList;
+    callback attribute acceptedCommandList;
+    callback attribute attributeList;
+    ram      attribute featureMap default = 1;
+    ram      attribute clusterRevision default = 5;
+
+    handle command Off;
+    handle command On;
+    handle command Toggle;
+    handle command OffWithEffect;
+    handle command OnWithRecallGlobalScene;
+    handle command OnWithTimedOff;
+  }
+
+  server cluster Descriptor {
+    callback attribute deviceTypeList;
+    callback attribute serverList;
+    callback attribute clientList;
+    callback attribute partsList;
+    callback attribute generatedCommandList;
+    callback attribute acceptedCommandList;
+    callback attribute attributeList;
+    callback attribute featureMap;
+    callback attribute clusterRevision;
+  }
+
+  server cluster BridgedDeviceBasicInformation {
+    emits event StartUp;
+    emits event ShutDown;
+    emits event Leave;
+    ram      attribute nodeLabel;
+    ram      attribute reachable default = 1;
+    ram      attribute uniqueID;
+    ram      attribute featureMap default = 0;
+    ram      attribute clusterRevision default = 0x0005;
+  }
+
+  server cluster ScenesManagement {
+    ram      attribute sceneTableSize default = 16;
+    callback attribute fabricSceneInfo;
+    callback attribute generatedCommandList;
+    callback attribute acceptedCommandList;
+    callback attribute attributeList;
+    ram      attribute featureMap default = 0;
+    ram      attribute clusterRevision default = 1;
+
+    handle command AddScene;
+    handle command AddSceneResponse;
+    handle command ViewScene;
+    handle command ViewSceneResponse;
+    handle command RemoveScene;
+    handle command RemoveSceneResponse;
+    handle command RemoveAllScenes;
+    handle command RemoveAllScenesResponse;
+    handle command StoreScene;
+    handle command StoreSceneResponse;
+    handle command RecallScene;
+    handle command GetSceneMembership;
+    handle command GetSceneMembershipResponse;
+  }
+}
+endpoint 4 {
+  device type ma_bridgednode = 19, version 3;
+  device type ma_onoffpluginunit = 266, version 3;
+
+  binding cluster Binding;
+
+  server cluster Identify {
+    callback attribute identifyTime;
+    callback attribute identifyType;
+    callback attribute generatedCommandList;
+    callback attribute acceptedCommandList;
+    callback attribute attributeList;
+    callback attribute featureMap;
+    callback attribute clusterRevision;
+
+    handle command Identify;
+  }
+
+  server cluster Groups {
+    ram      attribute nameSupport default = 0;
+    callback attribute generatedCommandList;
+    callback attribute acceptedCommandList;
+    callback attribute attributeList;
+    ram      attribute featureMap default = 0;
+    ram      attribute clusterRevision default = 3;
+
+    handle command AddGroup;
+    handle command AddGroupResponse;
+    handle command ViewGroup;
+    handle command ViewGroupResponse;
+    handle command GetGroupMembership;
+    handle command GetGroupMembershipResponse;
+    handle command RemoveGroup;
+    handle command RemoveGroupResponse;
+    handle command RemoveAllGroups;
+    handle command AddGroupIfIdentifying;
+  }
+
+  server cluster OnOff {
+    persist  attribute onOff default = 0;
+    ram      attribute globalSceneControl default = 1;
+    ram      attribute onTime default = 0;
+    ram      attribute offWaitTime default = 0;
+    persist  attribute startUpOnOff default = 0;
+    callback attribute generatedCommandList;
+    callback attribute acceptedCommandList;
+    callback attribute attributeList;
+    ram      attribute featureMap default = 1;
+    ram      attribute clusterRevision default = 5;
+
+    handle command Off;
+    handle command On;
+    handle command Toggle;
+    handle command OffWithEffect;
+    handle command OnWithRecallGlobalScene;
+    handle command OnWithTimedOff;
+  }
+
+  server cluster Descriptor {
+    callback attribute deviceTypeList;
+    callback attribute serverList;
+    callback attribute clientList;
+    callback attribute partsList;
+    callback attribute generatedCommandList;
+    callback attribute acceptedCommandList;
+    callback attribute attributeList;
+    callback attribute featureMap;
+    callback attribute clusterRevision;
+  }
+
+  server cluster BridgedDeviceBasicInformation {
+    emits event StartUp;
+    emits event ShutDown;
+    emits event Leave;
+    ram      attribute nodeLabel;
+    ram      attribute reachable default = 1;
+    ram      attribute uniqueID;
+    ram      attribute featureMap default = 0;
+    ram      attribute clusterRevision default = 0x0005;
+  }
+
+  server cluster ScenesManagement {
+    ram      attribute sceneTableSize default = 16;
+    callback attribute fabricSceneInfo;
+    callback attribute generatedCommandList;
+    callback attribute acceptedCommandList;
+    callback attribute attributeList;
+    ram      attribute featureMap default = 0;
+    ram      attribute clusterRevision default = 1;
+
+    handle command AddScene;
+    handle command AddSceneResponse;
+    handle command ViewScene;
+    handle command ViewSceneResponse;
+    handle command RemoveScene;
+    handle command RemoveSceneResponse;
+    handle command RemoveAllScenes;
+    handle command RemoveAllScenesResponse;
+    handle command StoreScene;
+    handle command StoreSceneResponse;
+    handle command RecallScene;
+    handle command GetSceneMembership;
+    handle command GetSceneMembershipResponse;
+  }
+}
+endpoint 5 {
+  device type ma_bridgednode = 19, version 3;
+  device type ma_onoffpluginunit = 266, version 3;
+
+  binding cluster Binding;
+
+  server cluster Identify {
+    callback attribute identifyTime;
+    callback attribute identifyType;
+    callback attribute generatedCommandList;
+    callback attribute acceptedCommandList;
+    callback attribute attributeList;
+    callback attribute featureMap;
+    callback attribute clusterRevision;
+
+    handle command Identify;
+  }
+
+  server cluster Groups {
+    ram      attribute nameSupport default = 0;
+    callback attribute generatedCommandList;
+    callback attribute acceptedCommandList;
+    callback attribute attributeList;
+    ram      attribute featureMap default = 0;
+    ram      attribute clusterRevision default = 3;
+
+    handle command AddGroup;
+    handle command AddGroupResponse;
+    handle command ViewGroup;
+    handle command ViewGroupResponse;
+    handle command GetGroupMembership;
+    handle command GetGroupMembershipResponse;
+    handle command RemoveGroup;
+    handle command RemoveGroupResponse;
+    handle command RemoveAllGroups;
+    handle command AddGroupIfIdentifying;
+  }
+
+  server cluster OnOff {
+    persist  attribute onOff default = 0;
+    ram      attribute globalSceneControl default = 1;
+    ram      attribute onTime default = 0;
+    ram      attribute offWaitTime default = 0;
+    persist  attribute startUpOnOff default = 0;
+    callback attribute generatedCommandList;
+    callback attribute acceptedCommandList;
+    callback attribute attributeList;
+    ram      attribute featureMap default = 1;
+    ram      attribute clusterRevision default = 5;
+
+    handle command Off;
+    handle command On;
+    handle command Toggle;
+    handle command OffWithEffect;
+    handle command OnWithRecallGlobalScene;
+    handle command OnWithTimedOff;
+  }
+
+  server cluster Descriptor {
+    callback attribute deviceTypeList;
+    callback attribute serverList;
+    callback attribute clientList;
+    callback attribute partsList;
+    callback attribute generatedCommandList;
+    callback attribute acceptedCommandList;
+    callback attribute attributeList;
+    callback attribute featureMap;
+    callback attribute clusterRevision;
+  }
+
+  server cluster BridgedDeviceBasicInformation {
+    emits event StartUp;
+    emits event ShutDown;
+    emits event Leave;
+    ram      attribute nodeLabel;
+    ram      attribute reachable default = 1;
+    ram      attribute uniqueID;
+    ram      attribute featureMap default = 0;
+    ram      attribute clusterRevision default = 0x0005;
+  }
+
+  server cluster ScenesManagement {
+    ram      attribute sceneTableSize default = 16;
+    callback attribute fabricSceneInfo;
+    callback attribute generatedCommandList;
+    callback attribute acceptedCommandList;
+    callback attribute attributeList;
+    ram      attribute featureMap default = 0;
+    ram      attribute clusterRevision default = 1;
+
+    handle command AddScene;
+    handle command AddSceneResponse;
+    handle command ViewScene;
+    handle command ViewSceneResponse;
+    handle command RemoveScene;
+    handle command RemoveSceneResponse;
+    handle command RemoveAllScenes;
+    handle command RemoveAllScenesResponse;
+    handle command StoreScene;
+    handle command StoreSceneResponse;
+    handle command RecallScene;
+    handle command GetSceneMembership;
+    handle command GetSceneMembershipResponse;
+  }
+}
+endpoint 6 {
+  device type ma_bridgednode = 19, version 3;
+  device type ma_onoffpluginunit = 266, version 3;
+
+  binding cluster Binding;
+
+  server cluster Identify {
+    callback attribute identifyTime;
+    callback attribute identifyType;
+    callback attribute generatedCommandList;
+    callback attribute acceptedCommandList;
+    callback attribute attributeList;
+    callback attribute featureMap;
+    callback attribute clusterRevision;
+
+    handle command Identify;
+  }
+
+  server cluster Groups {
+    ram      attribute nameSupport default = 0;
+    callback attribute generatedCommandList;
+    callback attribute acceptedCommandList;
+    callback attribute attributeList;
+    ram      attribute featureMap default = 0;
+    ram      attribute clusterRevision default = 3;
+
+    handle command AddGroup;
+    handle command AddGroupResponse;
+    handle command ViewGroup;
+    handle command ViewGroupResponse;
+    handle command GetGroupMembership;
+    handle command GetGroupMembershipResponse;
+    handle command RemoveGroup;
+    handle command RemoveGroupResponse;
+    handle command RemoveAllGroups;
+    handle command AddGroupIfIdentifying;
+  }
+
+  server cluster OnOff {
+    persist  attribute onOff default = 0;
+    ram      attribute globalSceneControl default = 1;
+    ram      attribute onTime default = 0;
+    ram      attribute offWaitTime default = 0;
+    persist  attribute startUpOnOff default = 0;
+    callback attribute generatedCommandList;
+    callback attribute acceptedCommandList;
+    callback attribute attributeList;
+    ram      attribute featureMap default = 1;
+    ram      attribute clusterRevision default = 5;
+
+    handle command Off;
+    handle command On;
+    handle command Toggle;
+    handle command OffWithEffect;
+    handle command OnWithRecallGlobalScene;
+    handle command OnWithTimedOff;
+  }
+
+  server cluster Descriptor {
+    callback attribute deviceTypeList;
+    callback attribute serverList;
+    callback attribute clientList;
+    callback attribute partsList;
+    callback attribute generatedCommandList;
+    callback attribute acceptedCommandList;
+    callback attribute attributeList;
+    callback attribute featureMap;
+    callback attribute clusterRevision;
+  }
+
+  server cluster BridgedDeviceBasicInformation {
+    emits event StartUp;
+    emits event ShutDown;
+    emits event Leave;
+    ram      attribute nodeLabel;
+    ram      attribute reachable default = 1;
+    ram      attribute uniqueID;
+    ram      attribute featureMap default = 0;
+    ram      attribute clusterRevision default = 0x0005;
   }
 
   server cluster ScenesManagement {

@@ -463,8 +463,10 @@ The STM32F107 allows computing and verifying the IP, UDP, TCP and ICMP checksums
 
 /* ESPurna + Matter on BK7231N: the RAM of the LibreTiny defaults above goes to Matter. Only sizes change here, no
  * option that changes a struct layout (libMatterApp.a was built against the original header). */
+/* 12 KB: the Wi-Fi RX path takes every frame from here, 8 KB ran full while commissioning (150-250 alloc errors = dropped
+ * frames). ESPurna has the heap since the Matter data moved to TCM */
 #undef MEM_SIZE
-#define MEM_SIZE (8 * 1024)
+#define MEM_SIZE (12 * 1024)
 
 /* 4 segments per connection: the web page and MQTT, never more than a third of MEM_SIZE in flight */
 #undef TCP_SND_BUF
@@ -494,4 +496,4 @@ The STM32F107 allows computing and verifying the IP, UDP, TCP and ICMP checksums
  * PBUF_RAM from MEM_SIZE). 3 ran EMPTY at AddNOC: the AddNOC reply and the operational mDNS announcement were dropped and
  * the commissioner waited ~45 s, then removed its fabric. CHIP's own lwipopts use 6..18. */
 #undef PBUF_POOL_SIZE
-#define PBUF_POOL_SIZE 6
+#define PBUF_POOL_SIZE 8

@@ -7,7 +7,9 @@
  * ESPurna -> Matter: matter_app_start(), matter_set_onoff(), matter_onboarding_codes(), matter_is_commissioned()
  * Matter -> ESPurna: matter_onoff_changed() (weak), and the bk_* platform API of matter_pal.h, which ESPurna implements
  * (key-value store, Wi-Fi status and events, entropy)
- * Root node + On/Off Plug-in Unit (0x010A) on endpoint 1, on-network commissioning only (no BLE).
+ * Root node + one On/Off Plug-in Unit (0x010A) on endpoint 1 for a board with one relay, or a bridge for more relays:
+ * Aggregator on endpoint 2 and a Bridged Node plug per relay on endpoints 3..6 (matter_plug_count(), EnablePlugs()).
+ * On-network commissioning only (no BLE).
  * Device attestation from the factory data the stock firmware left in flash (namespace "chip-factory"). */
 #include "BekenAppServer.h"
 #include "CHIPDeviceManager.h"
@@ -24,6 +26,7 @@ extern "C" int bk_write_data(const char * ns, const char * name, const char * bu
 #include <app/ConcreteAttributePath.h>
 #include <app/clusters/identify-server/identify-server.h>
 #include <app/server/Server.h>
+#include <app/util/endpoint-config-api.h>
 #include <credentials/DeviceAttestationCredsProvider.h>
 #include <credentials/examples/DeviceAttestationCredsExample.h>
 #include <crypto/CHIPCryptoPAL.h>
@@ -59,8 +62,29 @@ extern "C" void matter_onoff_changed(uint8_t endpoint, bool on) __attribute__((w
 extern "C" const char * matter_node_label(void) __attribute__((weak));
 // commissioning in progress: ESPurna gives the heap back (web socket clients) until it ends
 extern "C" void matter_commissioning(bool active) __attribute__((weak));
+// pairing window opened / closed
+extern "C" void matter_window(bool open) __attribute__((weak));
+// relays of the board = plugs in use (1..kPlugs); without it a single plug
+extern "C" uint8_t matter_plug_count(void) __attribute__((weak));
+// name (Bridged Device Basic Information NodeLabel) and unique id of plug 1..kPlugs when the device is a bridge
+extern "C" bool matter_plug_name(uint8_t plug, char * label, size_t label_size, char * unique, size_t unique_size)
+    __attribute__((weak));
 
 namespace {
+
+// Endpoints of the data model (plug.zap): a plain plug for boards with one relay, or a gateway (Aggregator) with up to
+// kPlugs Bridged Node plugs (ref. EnablePlugs())
+constexpr uint8_t kPlugs           = 4;
+constexpr EndpointId kSinglePlug   = 1;
+constexpr EndpointId kAggregator   = 2;
+constexpr EndpointId kFirstBridged = 3;
+
+// Set by EnablePlugs() in the Matter task, before any OnOff work item of ESPurna
+bool sBridge   = false;
+uint8_t sPlugs = 1;
+
+// OnOff changes reach ESPurna only after the server init (ref. PlugCallbacks)
+bool sServerReady = false;
 
 constexpr char FactoryNamespace[] = "chip-factory";
 
@@ -644,6 +668,22 @@ public:
     void OnCommissioningSessionEstablishmentError(CHIP_ERROR) override { Commissioning(false); }
     // not OnCommissioningWindowClosed: the window closes as soon as PASE is established, in the middle of commissioning
     void OnCommissioningSessionStopped() override { Commissioning(false); }
+
+    // pairing window state for the ESPurna WebUI (grey button with a countdown)
+    void OnCommissioningWindowOpened() override
+    {
+        if (matter_window)
+        {
+            matter_window(true);
+        }
+    }
+    void OnCommissioningWindowClosed() override
+    {
+        if (matter_window)
+        {
+            matter_window(false);
+        }
+    }
 };
 
 CommissioningDelegate sCommissioningDelegate;
@@ -656,15 +696,25 @@ void OnDeviceEvent(const ChipDeviceEvent * event, intptr_t)
     }
 }
 
+uint8_t EndpointPlug(EndpointId endpoint);
+
 class PlugCallbacks : public CommonDeviceCallbacks
 {
 public:
     void PostAttributeChangeCallback(EndpointId endpointId, ClusterId clusterId, AttributeId attributeId, uint8_t type,
                                      uint16_t size, uint8_t * value) override
     {
-        if (clusterId == Clusters::OnOff::Id && attributeId == Clusters::OnOff::Attributes::OnOff::Id && matter_onoff_changed)
+        // not while the server starts: the OnOff cluster applies StartUpOnOff then, the relays keep the state ESPurna
+        // gave them at boot and ESPurna sends it to Matter right after the start
+        if (clusterId == Clusters::OnOff::Id && attributeId == Clusters::OnOff::Attributes::OnOff::Id && matter_onoff_changed &&
+            sServerReady)
         {
-            matter_onoff_changed(static_cast<uint8_t>(endpointId), *value != 0);
+            // ESPurna counts plugs (relay + 1), not endpoints
+            const auto plug = EndpointPlug(endpointId);
+            if (plug)
+            {
+                matter_onoff_changed(plug, *value != 0);
+            }
         }
     }
 };
@@ -673,7 +723,92 @@ PlugCallbacks sCallbacks;
 
 void OnIdentifyStart(Identify *) {}
 void OnIdentifyStop(Identify *) {}
-Identify sIdentify1 = { EndpointId{ 1 }, OnIdentifyStart, OnIdentifyStop, Clusters::Identify::IdentifyTypeEnum::kVisibleIndicator };
+Identify sIdentify[1 + kPlugs] = {
+    { kSinglePlug, OnIdentifyStart, OnIdentifyStop, Clusters::Identify::IdentifyTypeEnum::kVisibleIndicator },
+    { kFirstBridged, OnIdentifyStart, OnIdentifyStop, Clusters::Identify::IdentifyTypeEnum::kVisibleIndicator },
+    { kFirstBridged + 1, OnIdentifyStart, OnIdentifyStop, Clusters::Identify::IdentifyTypeEnum::kVisibleIndicator },
+    { kFirstBridged + 2, OnIdentifyStart, OnIdentifyStop, Clusters::Identify::IdentifyTypeEnum::kVisibleIndicator },
+    { kFirstBridged + 3, OnIdentifyStart, OnIdentifyStop, Clusters::Identify::IdentifyTypeEnum::kVisibleIndicator },
+};
+
+// plug (relay + 1) -> endpoint, kInvalidEndpointId when the board does not use it
+EndpointId PlugEndpoint(uint8_t plug)
+{
+    if (sBridge)
+    {
+        return ((plug >= 1) && (plug <= sPlugs)) ? static_cast<EndpointId>(kFirstBridged + plug - 1) : kInvalidEndpointId;
+    }
+
+    return (plug == 1) ? kSinglePlug : kInvalidEndpointId;
+}
+
+// endpoint -> plug (relay + 1), 0 when it is not a plug in use
+uint8_t EndpointPlug(EndpointId endpoint)
+{
+    if (sBridge)
+    {
+        return ((endpoint >= kFirstBridged) && (endpoint < kFirstBridged + sPlugs)) ? static_cast<uint8_t>(endpoint - kFirstBridged + 1)
+                                                                                    : 0;
+    }
+
+    return (endpoint == kSinglePlug) ? 1 : 0;
+}
+
+// Bridged Device Basic Information of a plug: name and unique id from ESPurna (relay name or "<hostname> <n>")
+void NamePlug(uint8_t plug)
+{
+    char label[33] = {};
+    char unique[33] = {};
+    if (!matter_plug_name || !matter_plug_name(plug, label, sizeof(label), unique, sizeof(unique)))
+    {
+        snprintf(label, sizeof(label), "Plug %u", static_cast<unsigned>(plug));
+        snprintf(unique, sizeof(unique), "plug-%u", static_cast<unsigned>(plug));
+    }
+
+    const auto endpoint = PlugEndpoint(plug);
+    Clusters::BridgedDeviceBasicInformation::Attributes::NodeLabel::Set(endpoint, CharSpan::fromCharString(label));
+    Clusters::BridgedDeviceBasicInformation::Attributes::UniqueID::Set(endpoint, CharSpan::fromCharString(unique));
+}
+
+// One relay: a plain plug on endpoint 1 (what the boards had before, their controllers keep it). More relays: a bridge,
+// the gateway (Aggregator) on endpoint 2 and a Bridged Node plug per relay from endpoint 3, the way the speaker hub shows
+// one gateway with a plug per relay (a device with several plug endpoints showed up as a single plug there). The
+// endpoints of the other layout and the plugs above the relay count are disabled, controllers do not see them
+void EnablePlugs()
+{
+    uint8_t used = matter_plug_count ? matter_plug_count() : 1;
+    if (used < 1)
+    {
+        used = 1;
+    }
+    if (used > kPlugs)
+    {
+        used = kPlugs;
+    }
+
+    sPlugs  = used;
+    sBridge = used > 1;
+
+    emberAfEndpointEnableDisable(kSinglePlug, !sBridge);
+    emberAfEndpointEnableDisable(kAggregator, sBridge);
+    for (uint8_t plug = 1; plug <= kPlugs; ++plug)
+    {
+        emberAfEndpointEnableDisable(static_cast<EndpointId>(kFirstBridged + plug - 1), sBridge && (plug <= used));
+    }
+
+    if (sBridge)
+    {
+        for (uint8_t plug = 1; plug <= used; ++plug)
+        {
+            NamePlug(plug);
+        }
+        ChipLogProgress(AppServer, "Bridge: gateway endpoint %u, %u plugs from endpoint %u", kAggregator, used, kFirstBridged);
+    }
+    else
+    {
+        ChipLogProgress(AppServer, "Single plug on endpoint %u", kSinglePlug);
+    }
+}
 
 bool BuildPayload(SetupPayload & payload)
 {
@@ -742,6 +877,7 @@ void InitServer(intptr_t)
 {
     own::Install();
     BekenAppServer::Init(&sCommissioningDelegate);
+    EnablePlugs();
     PlatformMgr().AddEventHandler(OnDeviceEvent, 0);
 #if CHIP_DEVICE_CONFIG_DEVICE_VENDOR_ID == 0xFFF1
     // test build: SDK example DAC / PAI / CD of VID 0xFFF1, commissioners treat it as an uncertified device
@@ -765,12 +901,17 @@ void InitServer(intptr_t)
     }
     // Wi-Fi belongs to ESPurna: Matter only listens to its connected / got IP events (bk_event_register_cb)
     ConnectivityMgr().SetWiFiStationMode(ConnectivityManager::kWiFiStationMode_Enabled);
+    sServerReady = true;
 }
 
+// arg: plug (relay + 1) << 1 | on
 void SetOnOff(intptr_t arg)
 {
-    const auto endpoint = static_cast<EndpointId>(arg >> 1);
-    Clusters::OnOff::Attributes::OnOff::Set(endpoint, (arg & 1) != 0);
+    const auto endpoint = PlugEndpoint(static_cast<uint8_t>(arg >> 1));
+    if (endpoint != kInvalidEndpointId)
+    {
+        Clusters::OnOff::Attributes::OnOff::Set(endpoint, (arg & 1) != 0);
+    }
 }
 
 void CopyString(const std::string & in, char * out, size_t size)
@@ -793,9 +934,16 @@ extern "C" int matter_app_start(void)
     return 0;
 }
 
-extern "C" void matter_set_onoff(uint8_t endpoint, bool on)
+// Plug endpoints the library has (ESPurna links older libraries with a single one, it asks through a weak reference)
+extern "C" uint8_t matter_app_plugs(void)
 {
-    PlatformMgr().ScheduleWork(SetOnOff, (static_cast<intptr_t>(endpoint) << 1) | (on ? 1 : 0));
+    return kPlugs;
+}
+
+// plug = relay + 1 (the endpoint was the same number before the bridge layout)
+extern "C" void matter_set_onoff(uint8_t plug, bool on)
+{
+    PlatformMgr().ScheduleWork(SetOnOff, (static_cast<intptr_t>(plug) << 1) | (on ? 1 : 0));
 }
 
 // Manual pairing code and QR payload. They carry the setup passcode: only for the device owner
@@ -856,4 +1004,57 @@ extern "C" void matter_open_window(void)
 extern "C" int matter_fabric_count(void)
 {
     return Server::GetInstance().GetFabricTable().FabricCount();
+}
+
+// Controllers the device was added to (fabrics), for the list of the ESPurna WebUI: the n-th one (0..), false after the
+// last. label gets the fabric label, cut to label_size - 1
+extern "C" bool matter_fabric_info(int n, uint8_t * index, uint16_t * vendor, uint64_t * node, char * label, size_t label_size)
+{
+    bool found = false;
+    PlatformMgr().LockChipStack();
+    int position = 0;
+    for (const auto & fabric : Server::GetInstance().GetFabricTable())
+    {
+        if (position++ != n)
+        {
+            continue;
+        }
+
+        *index  = fabric.GetFabricIndex();
+        *vendor = static_cast<uint16_t>(fabric.GetVendorId());
+        *node   = fabric.GetNodeId();
+        if (label_size)
+        {
+            const auto text   = fabric.GetFabricLabel();
+            const size_t size = (text.size() < label_size) ? text.size() : (label_size - 1);
+            memcpy(label, text.data(), size);
+            label[size] = '\0';
+        }
+        found = true;
+        break;
+    }
+    PlatformMgr().UnlockChipStack();
+    return found;
+}
+
+// The device leaves a controller, like on its RemoveFabric command (the server drops the sessions, access entries and
+// group keys of the fabric, and opens the pairing window when it was the last one). In the Matter task
+extern "C" bool matter_remove_fabric(uint8_t index)
+{
+    PlatformMgr().LockChipStack();
+    const bool found = Server::GetInstance().GetFabricTable().FindFabricWithIndex(index) != nullptr;
+    PlatformMgr().UnlockChipStack();
+    if (!found)
+    {
+        return false;
+    }
+
+    PlatformMgr().ScheduleWork(
+        [](intptr_t arg) {
+            const auto fabric = static_cast<FabricIndex>(arg);
+            CHIP_ERROR err    = Server::GetInstance().GetFabricTable().Delete(fabric);
+            ChipLogProgress(AppServer, "Fabric %u removed: %" CHIP_ERROR_FORMAT, static_cast<unsigned>(fabric), err.Format());
+        },
+        static_cast<intptr_t>(index));
+    return true;
 }
