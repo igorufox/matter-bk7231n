@@ -1,13 +1,14 @@
 /* RAM profile for BK7231N inside ESPurna. Used both as the project config (CHIP_CONFIG_*, CHIP_IM_*) and as the
  * device project config (CHIP_DEVICE_CONFIG_*): gn args chip_project_config_include and
  * chip_device_project_config_include.
- * 5 fabrics (the spec minimum: the hub, matter-server and room for more) with the per-fabric minimums the SDK asserts
+ * 3 fabrics (the hub, matter-server and one more; 5 with their pools cost the heap a pairing needs: a 4-relay bridge
+ * had 3.5 KB left while the hub commissioned) with the per-fabric minimums the SDK asserts
  * (3 subscriptions of 3 paths, 1 read of 9 paths per fabric). The bring-up profile had 2 fabrics, 4 sessions and
  * 6 exchanges ("mRetransTable Already Full" at CommissioningComplete); since the static data of the library is in the
  * data TCM (ESPurna scripts/beken_tcm.py) the heap has ~40 KB to spare with Matter running. */
 #pragma once
 
-#define CHIP_CONFIG_MAX_FABRICS 5
+#define CHIP_CONFIG_MAX_FABRICS 3
 #define CHIP_CONFIG_SECURE_SESSION_POOL_SIZE 8
 #define CHIP_CONFIG_UNAUTHENTICATED_CONNECTION_POOL_SIZE 4
 #define CHIP_CONFIG_MAX_EXCHANGE_CONTEXTS 12
@@ -16,10 +17,10 @@
 #define CHIP_CONFIG_DEVICE_MAX_ACTIVE_DEVICES 2
 #define CHIP_CONFIG_EXAMPLE_ACCESS_CONTROL_MAX_ENTRIES_PER_FABRIC 4
 
-#define CHIP_IM_MAX_NUM_SUBSCRIPTIONS 15
-#define CHIP_IM_MAX_NUM_READS 5
-#define CHIP_IM_SERVER_MAX_NUM_PATH_GROUPS_FOR_SUBSCRIPTIONS 45
-#define CHIP_IM_SERVER_MAX_NUM_PATH_GROUPS_FOR_READS 45
+#define CHIP_IM_MAX_NUM_SUBSCRIPTIONS 9
+#define CHIP_IM_MAX_NUM_READS 3
+#define CHIP_IM_SERVER_MAX_NUM_PATH_GROUPS_FOR_SUBSCRIPTIONS 27
+#define CHIP_IM_SERVER_MAX_NUM_PATH_GROUPS_FOR_READS 27
 #define CHIP_IM_SERVER_MAX_NUM_DIRTY_SET 4
 #define CHIP_IM_MAX_NUM_COMMAND_HANDLER 2
 #define CHIP_IM_MAX_NUM_WRITE_HANDLER 2
