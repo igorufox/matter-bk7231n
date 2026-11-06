@@ -30,6 +30,9 @@ Build (WSL):
 
     bash /mnt/c/working/ginhub/matter-bk7231n/tools/build.sh /mnt/c/working/ginhub/matter-bk7231n/out/plug-tuned-15
 
+The include paths of LibreTiny / BDK 3.0.33 (`gn/bdk/bdk_flags.gni`) go through `gn/third_party/pio`, a second
+junction (to `C:\Users\igoru\.platformio`) that `build.sh` makes.
+
 Configs: `out/plug-tuned-15` (Quectel factory data of the board), `out/plug-test` (SDK test attestation, VID 0xFFF1 /
 PID 0x8001, `BK7231NProjectConfigTest.h`). A change of the project config or of `lwipopts.h` rebuilds most of the
 library (10-15 min). The last build on connectedhomeip v1.4.2.0 is commit `cefb35a`.
@@ -39,3 +42,20 @@ Fixes that made the speaker hub keep the device (2026-11-05):
   the AddNOC reply and the operational mDNS announcement were dropped
 - `DiagnosticDataProviderImpl::GetNetworkInterfaces()` - IsOperational, MAC, IPv4 and IPv6 addresses (the hub reads
   them right after CommissioningComplete and removed its fabric when the interface looked down)
+
+## Releases
+
+GitHub Actions (`.github/workflows/release.yml`) build the library after every push to `main` that changes `gn/`,
+`lwip-override/`, `tools/` or the workflow (and on "Run workflow"): `tools/ci_build.sh` on Ubuntu 24.04, natively with
+the Linux build of the same PlatformIO gcc package (`toolchain-gccarmnoneeabi@1.100301.220327`, GCC 10.3.1) and the
+same pinned connectedhomeip, LibreTiny 1.14.0 and BDK packages (all pins are at the top of `ci_build.sh`). Each build
+is published as a release `libmatter-<yyyymmdd>-<sha7>`:
+
+- `matter-bk7231n-lib.zip` - `lib/libMatterApp.a` (debug info stripped) + `include/lwipopts.h`
+- `matter-bk7231n-lib.zip.sha256`
+
+The newest 5 of these releases are kept, older ones are deleted with their tags. ESPurna takes the newest one with
+`custom_matter_lib = latest` in `platformio_beken.ini` (checked against the `.sha256` asset). The same build on any
+Linux, WSL included (`gn` on PATH):
+
+    bash tools/ci_build.sh <deps_dir> <out_dir>

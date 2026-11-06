@@ -2,13 +2,30 @@ import("//build_overrides/build.gni")
 import("//build_overrides/chip.gni")
 import("${build_root}/toolchain/gcc_toolchain.gni")
 
-# Windows arm-none-eabi GCC 10.3.1 of PlatformIO, called from WSL through tools/wingcc.sh
-_wrap = rebase_path("//../tools/wingcc.sh")
+declare_args() {
+  # "wingcc": the Windows arm-none-eabi GCC 10.3.1 of PlatformIO, called from WSL through tools/wingcc.sh
+  #           (tools/build.sh)
+  # "native": the Linux build of the same PlatformIO package in //third_party/pio (tools/ci_build.sh)
+  bk_toolchain = "wingcc"
+}
+
+if (bk_toolchain == "native") {
+  _gcc = rebase_path(
+          "//third_party/pio/packages/toolchain-gccarmnoneeabi/bin/arm-none-eabi-")
+  _ar = "${_gcc}ar"
+  _cc = "${_gcc}gcc"
+  _cxx = "${_gcc}g++"
+} else {
+  _wrap = rebase_path("//../tools/wingcc.sh")
+  _ar = "${_wrap} ar"
+  _cc = "${_wrap} gcc"
+  _cxx = "${_wrap} g++"
+}
 
 gcc_toolchain("bk7231n") {
-  ar = "${_wrap} ar"
-  cc = "${_wrap} gcc"
-  cxx = "${_wrap} g++"
+  ar = _ar
+  cc = _cc
+  cxx = _cxx
 
   toolchain_args = {
     current_os = "freertos"

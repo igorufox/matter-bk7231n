@@ -13,8 +13,9 @@
 /tools/deb/
 /tools/gnroot/
 
-# connectedhomeip is a separate checkout (see README.md), linked here
+# connectedhomeip is a separate checkout (see README.md), linked here; so is the PlatformIO home (LibreTiny headers)
 /gn/third_party/connectedhomeip
+/gn/third_party/pio
 
 # backups
 *.orig

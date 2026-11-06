@@ -1,0 +1,94 @@
+# Builds libMatterApp.a (tools/ci_build.sh) and publishes it as a release libmatter-<yyyymmdd>-<sha7> with
+#   matter-bk7231n-lib.zip          lib/libMatterApp.a + include/lwipopts.h
+#   matter-bk7231n-lib.zip.sha256   "<sha256>  matter-bk7231n-lib.zip"
+# ESPurna (custom_matter_lib = latest in platformio_beken.ini) takes the newest of these releases.
+# The newest 5 libmatter-<yyyymmdd>-<sha7> releases are kept; older ones and their tags are deleted. Releases with
+# other names (the hand-made libmatter-2026.11.06) are never touched.
+name: libMatterApp release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "gn/**"
+      - "lwip-override/**"
+      - "tools/**"
+      - ".github/workflows/release.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  KEEP_RELEASES: 5
+
+jobs:
+  release:
+    # 24.04: its generate-ninja (gn 2024-02-21, 03d10f1) is the gn the library is built with on WSL
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: gn
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q generate-ninja
+          gn --version
+
+      # connectedhomeip + submodules, LibreTiny / BDK headers, gcc, zap-cli, Python venv (pins in tools/ci_build.sh;
+      # an older cache is reused, ci_build.sh replaces whatever does not match the pins)
+      - uses: actions/cache@v4
+        with:
+          path: ~/deps
+          key: deps-${{ runner.os }}-${{ hashFiles('tools/ci_build.sh') }}
+          restore-keys: deps-${{ runner.os }}-
+
+      - name: Build
+        run: JOBS=$(nproc) bash tools/ci_build.sh ~/deps ~/out
+
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="libmatter-$(date -u +%Y%m%d)-${GITHUB_SHA::7}"
+          read -r sha _ < ~/out/matter-bk7231n-lib.zip.sha256
+          chip=$(git -C ~/deps/connectedhomeip log -1 --format='%h (%ad)' --date=short)
+          gcc=$(~/deps/pio/packages/toolchain-gccarmnoneeabi/bin/arm-none-eabi-gcc --version | head -1)
+          size=$(stat -c %s ~/out/pkg/lib/libMatterApp.a)
+          cat > notes.md << EOF
+          libMatterApp.a for ESPurna on the BK7231N, built from ${GITHUB_SHA::7} by tools/ci_build.sh.
+
+          - connectedhomeip ${chip}
+          - ${gcc}
+          - libMatterApp.a: ${size} bytes (debug info stripped)
+          - matter-bk7231n-lib.zip SHA-256: \`${sha}\`
+          EOF
+          if gh release view "$tag" > /dev/null 2>&1; then
+            # the same commit built again on the same day
+            gh release upload "$tag" --clobber ~/out/matter-bk7231n-lib.zip ~/out/matter-bk7231n-lib.zip.sha256
+            gh release edit "$tag" --notes-file notes.md
+          else
+            gh release create "$tag" --target "$GITHUB_SHA" --title "$tag" --notes-file notes.md --latest \
+              ~/out/matter-bk7231n-lib.zip ~/out/matter-bk7231n-lib.zip.sha256
+          fi
+          echo "### $tag" >> "$GITHUB_STEP_SUMMARY"
+          cat notes.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Delete old releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release list --limit 200 --json tagName,createdAt --jq \
+            "[.[] | select(.tagName | test(\"^libmatter-[0-9]{8}-[0-9a-f]{7}\$\"))] | sort_by(.createdAt) | reverse
+             | .[${KEEP_RELEASES}:] | .[].tagName" |
+          while read -r old; do
+            echo "deleting $old"
+            gh release delete "$old" --yes --cleanup-tag
+          done

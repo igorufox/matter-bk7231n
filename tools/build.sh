@@ -8,17 +8,24 @@ OUT=${1:-$M/out/plug}
 CHIP_DIR=/mnt/c/working/ginhub/connectedhomeip-1.5
 ZAP_DIR=$M/tools/zap-2025.10.23
 
-# gn/third_party/connectedhomeip: an NTFS junction made on the Windows side (the Windows gcc can not follow a WSL
-# symlink)
-LINK=$M/gn/third_party/connectedhomeip
-if [ "$(readlink "$LINK" 2>/dev/null)" != "$CHIP_DIR" ]; then
-    LINK_WIN='C:\working\ginhub\matter-bk7231n\gn\third_party\connectedhomeip'
-    TARGET_WIN="C:/${CHIP_DIR#/mnt/c/}"
-    TARGET_WIN="${TARGET_WIN//\//\\}"
-    /mnt/c/Windows/System32/cmd.exe /c "rmdir $LINK_WIN" >/dev/null 2>&1 || rm -f "$LINK"
-    /mnt/c/Windows/System32/cmd.exe /c "mklink /J $LINK_WIN $TARGET_WIN" >/dev/null
-fi
-[ "$(readlink "$LINK")" = "$CHIP_DIR" ] || { echo "gn/third_party/connectedhomeip does not point at $CHIP_DIR"; exit 1; }
+PIO_DIR=/mnt/c/Users/igoru/.platformio   # LibreTiny and its BDK packages (headers), the GN root sees //third_party/pio
+
+# gn/third_party/{connectedhomeip,pio}: NTFS junctions made on the Windows side (the Windows gcc can not follow a WSL
+# symlink; tools/ci_build.sh makes plain symlinks instead)
+junction() {   # <name under gn/third_party> <target under /mnt/c>
+    local link=$M/gn/third_party/$1
+    if [ "$(readlink "$link" 2>/dev/null)" != "$2" ]; then
+        local link_win="C:\\working\\ginhub\\matter-bk7231n\\gn\\third_party\\$1"
+        local target_win="C:/${2#/mnt/c/}"
+        target_win="${target_win//\//\\}"
+        mkdir -p "$M/gn/third_party"
+        /mnt/c/Windows/System32/cmd.exe /c "rmdir $link_win" >/dev/null 2>&1 || rm -f "$link"
+        /mnt/c/Windows/System32/cmd.exe /c "mklink /J $link_win $target_win" >/dev/null
+    fi
+    [ "$(readlink "$link")" = "$2" ] || { echo "gn/third_party/$1 does not point at $2"; exit 1; }
+}
+junction connectedhomeip "$CHIP_DIR"
+junction pio "$PIO_DIR"
 
 # the data model target has to live under connectedhomeip/examples (visibility of src/app:required-privileges)
 mkdir -p "$CHIP_DIR/examples/bk7231n-plug"
