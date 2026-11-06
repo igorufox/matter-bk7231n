@@ -1,8 +1,8 @@
 # matter-bk7231n
 
 Matter (connectedhomeip) for the Beken BK7231N, as a static library for ESPurna on LibreTiny: `libMatterApp.a`
-with an On/Off plug (one endpoint, `gn/app/plug.zap`) and a small C API that ESPurna calls
-(`code/espurna/arch/beken/matter_beken.cpp` in the ESPurna fork, env `matter-ipv6-test` of `platformio_beken.ini`).
+with On/Off plugs, one per relay (`gn/app/plug.zap`) and a small C API that ESPurna calls
+(`code/espurna/arch/beken/matter_beken.cpp` in the ESPurna fork, env `beken-bk7231n` of `platformio_beken.ini`, image `beken-matter`).
 
 - `gn/` - own GN root: build args for the ARM968E-S (`args.gni`, `toolchain/`, `bdk/` flags of BDK 3.0.33 /
   LibreTiny 1.14), mbedTLS 2.28 config, the application (`app/`: data model, `matter_app.cpp` with the C API,
