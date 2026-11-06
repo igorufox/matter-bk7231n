@@ -28,6 +28,12 @@
 #define CHIP_IM_MAX_NUM_TIMED_HANDLER 2
 #define CHIP_IM_MAX_REPORTS_IN_FLIGHT 4
 
+/* Messages waiting for an ACK. The SDK default is PBUF_POOL_SIZE - 1, but this library is compiled against the lwipopts.h
+ * of the BDK (reduced memory plan: PBUF_POOL_SIZE 3), not lwip-override/lwipopts.h that ESPurna builds lwIP with
+ * (10 buffers): it got 2 entries, a report to matter-server and a reply to the hub filled them and the reply to the
+ * commissioner was dropped ("mRetransTable Already Full", the hub stuck at step 2). 9 = the real pool - 1 */
+#define CHIP_CONFIG_RMP_RETRANS_TABLE_SIZE 9
+
 #define CHIP_DEVICE_CONFIG_MAX_EVENT_QUEUE_SIZE 64
 #define CHIP_DEVICE_CONFIG_EVENT_LOGGING_CRIT_BUFFER_SIZE 512
 #define CHIP_DEVICE_CONFIG_EVENT_LOGGING_INFO_BUFFER_SIZE 256
