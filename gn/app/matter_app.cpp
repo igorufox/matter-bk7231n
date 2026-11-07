@@ -26,6 +26,7 @@ extern "C" int bk_write_data(const char * ns, const char * name, const char * bu
 #include <app/ConcreteAttributePath.h>
 #include <app/clusters/identify-server/identify-server.h>
 #include <app/server/Server.h>
+#include <app/util/attribute-storage.h>
 #include <app/util/endpoint-config-api.h>
 #include <credentials/DeviceAttestationCredsProvider.h>
 #include <credentials/examples/DeviceAttestationCredsExample.h>
@@ -69,6 +70,9 @@ extern "C" uint8_t matter_plug_count(void) __attribute__((weak));
 // name (Bridged Device Basic Information NodeLabel) and unique id of plug 1..kPlugs when the device is a bridge
 extern "C" bool matter_plug_name(uint8_t plug, char * label, size_t label_size, char * unique, size_t unique_size)
     __attribute__((weak));
+// device type of the relay endpoints when the factory certification declaration names another one than the
+// On/Off Plug-in Unit of plug.zap (MOES round 2-relay board: On/Off Light 0x0100); 0 keeps the plug
+extern "C" uint16_t matter_device_type(void) __attribute__((weak));
 
 namespace {
 
@@ -620,8 +624,73 @@ public:
 
 Attestation sOwnAttestation;
 
-// Factory DAC there: nothing to do, the factory identity is used. None: load the own identity (or make it) and use it
-// instead of the platform providers
+// Factory identity: VID / PID / names from the factory data, the certification declaration is issued for them; the rest
+// from the provider of the platform. The Quectel table holds the values of the build configuration anyway, Tuya's
+// Matter firmware (MOES ...) its own vendor, with the DAC of Tuya as the DAC origin of the declaration
+class FactoryDeviceInstanceInfo : public DeviceInstanceInfoProvider
+{
+public:
+    void SetBase(DeviceInstanceInfoProvider * base) { mBase = base; }
+
+    CHIP_ERROR GetVendorName(char * buf, size_t size) override
+    {
+        return (ReadText("vendor-name", buf, size) == CHIP_NO_ERROR) ? CHIP_NO_ERROR : mBase->GetVendorName(buf, size);
+    }
+    CHIP_ERROR GetVendorId(uint16_t & out) override
+    {
+        return ReadNumber("vendor-id", out) ? CHIP_NO_ERROR : mBase->GetVendorId(out);
+    }
+    CHIP_ERROR GetProductName(char * buf, size_t size) override
+    {
+        return (ReadText("product-name", buf, size) == CHIP_NO_ERROR) ? CHIP_NO_ERROR : mBase->GetProductName(buf, size);
+    }
+    CHIP_ERROR GetProductId(uint16_t & out) override
+    {
+        return ReadNumber("product-id", out) ? CHIP_NO_ERROR : mBase->GetProductId(out);
+    }
+    CHIP_ERROR GetPartNumber(char * buf, size_t size) override { return mBase->GetPartNumber(buf, size); }
+    CHIP_ERROR GetProductURL(char * buf, size_t size) override { return mBase->GetProductURL(buf, size); }
+    CHIP_ERROR GetProductLabel(char * buf, size_t size) override { return mBase->GetProductLabel(buf, size); }
+    CHIP_ERROR GetSerialNumber(char * buf, size_t size) override { return mBase->GetSerialNumber(buf, size); }
+    CHIP_ERROR GetManufacturingDate(uint16_t & year, uint8_t & month, uint8_t & day) override
+    {
+        return mBase->GetManufacturingDate(year, month, day);
+    }
+    CHIP_ERROR GetHardwareVersion(uint16_t & out) override { return mBase->GetHardwareVersion(out); }
+    CHIP_ERROR GetHardwareVersionString(char * buf, size_t size) override { return mBase->GetHardwareVersionString(buf, size); }
+    CHIP_ERROR GetRotatingDeviceIdUniqueId(MutableByteSpan & out) override { return mBase->GetRotatingDeviceIdUniqueId(out); }
+
+private:
+    static CHIP_ERROR ReadText(const char * name, char * buf, size_t size)
+    {
+        VerifyOrReturnError(size > 1, CHIP_ERROR_BUFFER_TOO_SMALL);
+        MutableByteSpan span(reinterpret_cast<uint8_t *>(buf), size - 1);
+        ReturnErrorOnFailure(ReadFactory(name, span));
+        VerifyOrReturnError(span.size() > 0, CHIP_ERROR_NOT_FOUND);
+        buf[span.size()] = '\0';
+        return CHIP_NO_ERROR;
+    }
+
+    // 2 bytes, little endian
+    static bool ReadNumber(const char * name, uint16_t & out)
+    {
+        uint8_t value[2];
+        MutableByteSpan span(value);
+        if ((ReadFactory(name, span) != CHIP_NO_ERROR) || (span.size() != sizeof(value)))
+        {
+            return false;
+        }
+        out = static_cast<uint16_t>(value[0] | (value[1] << 8));
+        return true;
+    }
+
+    DeviceInstanceInfoProvider * mBase = nullptr;
+};
+
+FactoryDeviceInstanceInfo sFactoryDeviceInstanceInfo;
+
+// Factory DAC there: the factory identity is used, VID / PID / names of the factory data. None: load the own identity
+// (or make it) and use it instead of the platform providers
 void Install()
 {
     uint8_t probe[1];
@@ -629,6 +698,13 @@ void Install()
     const CHIP_ERROR factory = ReadFactory("dac-cert", probeSpan);
     if ((factory == CHIP_NO_ERROR) || (factory == CHIP_ERROR_BUFFER_TOO_SMALL))
     {
+        sFactoryDeviceInstanceInfo.SetBase(GetDeviceInstanceInfoProvider());
+        SetDeviceInstanceInfoProvider(&sFactoryDeviceInstanceInfo);
+        uint16_t vendor  = 0;
+        uint16_t product = 0;
+        sFactoryDeviceInstanceInfo.GetVendorId(vendor);
+        sFactoryDeviceInstanceInfo.GetProductId(product);
+        ChipLogProgress(AppServer, "Factory identity 0x%04X/0x%04X", vendor, product);
         return;
     }
 
@@ -788,6 +864,25 @@ void EnablePlugs()
 
     sPlugs  = used;
     sBridge = used > 1;
+
+    // A controller that knows the product by its VID/PID expects the device type of its certification declaration on
+    // the endpoints (the speaker hub stays at the first step otherwise). Revisions as in plug.zap
+    const uint16_t type = matter_device_type ? matter_device_type() : 0;
+    if (type && (type != 0x010A))
+    {
+        static EmberAfDeviceType sSingle[1];
+        static EmberAfDeviceType sBridged[2];
+        sSingle[0]  = { type, 3 };
+        sBridged[0] = { 0x0013, 3 };
+        sBridged[1] = { type, 3 };
+
+        emberAfSetDeviceTypeList(kSinglePlug, Span<const EmberAfDeviceType>(sSingle));
+        for (uint8_t plug = 1; plug <= kPlugs; ++plug)
+        {
+            emberAfSetDeviceTypeList(static_cast<EndpointId>(kFirstBridged + plug - 1), Span<const EmberAfDeviceType>(sBridged));
+        }
+        ChipLogProgress(AppServer, "Device type 0x%04X on the relay endpoints (certification declaration)", type);
+    }
 
     emberAfEndpointEnableDisable(kSinglePlug, !sBridge);
     emberAfEndpointEnableDisable(kAggregator, sBridge);
