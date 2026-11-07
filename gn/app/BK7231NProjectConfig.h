@@ -17,9 +17,17 @@
 #define CHIP_CONFIG_DEVICE_MAX_ACTIVE_DEVICES 2
 #define CHIP_CONFIG_EXAMPLE_ACCESS_CONTROL_MAX_ENTRIES_PER_FABRIC 4
 
-#define CHIP_IM_MAX_NUM_SUBSCRIPTIONS 9
+/* 12 subscriptions of 3 paths, not the 9 = 3 fabrics x 3 the SDK asserts: a speaker hub opens 9 at once right after
+ * CommissioningComplete. With matter-server already holding 1 the 9th evicted one of them ("DMG Evicting Subscription"),
+ * ~75 s later the station redid CASE and resubscribed all 9, evicting again, and the phone app sat on step 3 meanwhile
+ * (CBU 4-relay bridge, 2026-11-07). 12 leaves the hub 9 + matter-server 1 + 2 spare; the per-fabric guarantee becomes 4.
+ * Cost (from libMatterApp.a 9-sub and 15-sub builds, nm): ReadHandler ~144 B + ReportScheduler node 40 B per
+ * subscription, 52 B per path group (attribute 16 + event 16 + data version filter 20), so +3 and +9 = ~1 KB of .bss.
+ * The pools are static (CHIP_SYSTEM_CONFIG_POOL_USE_HEAP 0) and ESPurna links this .bss into the TCM, which had
+ * ~4.4 KB free: the heap does not pay for it, a TCM overflow fails the link */
+#define CHIP_IM_MAX_NUM_SUBSCRIPTIONS 12
 #define CHIP_IM_MAX_NUM_READS 3
-#define CHIP_IM_SERVER_MAX_NUM_PATH_GROUPS_FOR_SUBSCRIPTIONS 27
+#define CHIP_IM_SERVER_MAX_NUM_PATH_GROUPS_FOR_SUBSCRIPTIONS 36
 #define CHIP_IM_SERVER_MAX_NUM_PATH_GROUPS_FOR_READS 27
 #define CHIP_IM_SERVER_MAX_NUM_DIRTY_SET 4
 #define CHIP_IM_MAX_NUM_COMMAND_HANDLER 2
