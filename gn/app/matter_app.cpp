@@ -3,7 +3,8 @@
  * stock firmware (Quectel / Tuya) when the board has it, or an own identity made once per board (namespace
  * "espurna-id" of the key-value store). ESPurna sets its providers in matter_identity_install(), called before the
  * server init; without it the platform ones stay (SDK test values).
- * ESPurna -> Matter: matter_app_start(), matter_set_onoff(), matter_onboarding_codes(), matter_is_commissioned()
+ * ESPurna -> Matter: matter_app_start(), matter_app_plugs(), matter_set_onoff(); the codes, controllers, pairing window and
+ * ping are ESPurna's own on the server API (matter_app.cpp of the fork)
  * Matter -> ESPurna: matter_onoff_changed(), matter_identity_install() (weak), and the bk_* platform API of
  * matter_pal.h, which ESPurna implements (key-value store, Wi-Fi status and events, entropy)
  * Root node + one On/Off Plug-in Unit (0x010A) on endpoint 1 for a board with one relay, or a bridge for more relays:
@@ -28,9 +29,6 @@
 #include <platform/CHIPDeviceLayer.h>
 #include <platform/CommissionableDataProvider.h>
 #include <platform/DeviceInstanceInfoProvider.h>
-#include <setup_payload/ManualSetupPayloadGenerator.h>
-#include <setup_payload/QRCodeSetupPayloadGenerator.h>
-#include <setup_payload/SetupPayload.h>
 
 #include <app/AttributeValueDecoder.h>
 #include <app/clusters/basic-information/BasicInformationCluster.h>
@@ -41,7 +39,6 @@
 #include <lib/core/TLV.h>
 
 #include <cstring>
-#include <string>
 
 #include <FreeRTOS.h>
 #include <task.h>
@@ -263,31 +260,6 @@ void EnablePlugs()
     }
 }
 
-bool BuildPayload(SetupPayload & payload)
-{
-    uint32_t passcode      = 0;
-    uint16_t discriminator = 0;
-    uint16_t vendor        = 0;
-    uint16_t product       = 0;
-    if ((GetCommissionableDataProvider()->GetSetupPasscode(passcode) != CHIP_NO_ERROR) ||
-        (GetCommissionableDataProvider()->GetSetupDiscriminator(discriminator) != CHIP_NO_ERROR) ||
-        (GetDeviceInstanceInfoProvider()->GetVendorId(vendor) != CHIP_NO_ERROR) ||
-        (GetDeviceInstanceInfoProvider()->GetProductId(product) != CHIP_NO_ERROR))
-    {
-        return false;
-    }
-
-    payload.version           = 0;
-    payload.vendorID          = vendor;
-    payload.productID         = product;
-    payload.commissioningFlow = CommissioningFlow::kStandard;
-    payload.rendezvousInformation.SetValue(RendezvousInformationFlags(RendezvousInformationFlag::kOnNetwork));
-    payload.discriminator.SetLongValue(discriminator);
-    payload.setUpPINCode = passcode;
-
-    return true;
-}
-
 // NodeLabel = the ESPurna hostname while no controller has written one
 void SetDefaultNodeLabel(const char * name)
 {
@@ -363,16 +335,6 @@ void SetOnOff(intptr_t arg)
     }
 }
 
-void CopyString(const std::string & in, char * out, size_t size)
-{
-    if (size)
-    {
-        const size_t length = (in.size() < size) ? in.size() : (size - 1);
-        memcpy(out, in.data(), length);
-        out[length] = '\0';
-    }
-}
-
 } // namespace
 
 extern "C" int matter_app_start(void)
@@ -395,115 +357,5 @@ extern "C" void matter_set_onoff(uint8_t plug, bool on)
     PlatformMgr().ScheduleWork(SetOnOff, (static_cast<intptr_t>(plug) << 1) | (on ? 1 : 0));
 }
 
-// Manual pairing code and QR payload. They carry the setup passcode: only for the device owner
-extern "C" bool matter_onboarding_codes(char * manual, size_t manual_size, char * qr, size_t qr_size)
-{
-    SetupPayload payload;
-    if (!BuildPayload(payload))
-    {
-        return false;
-    }
-
-    std::string out;
-    if (ManualSetupPayloadGenerator(payload).payloadDecimalStringRepresentation(out) != CHIP_NO_ERROR)
-    {
-        return false;
-    }
-    CopyString(out, manual, manual_size);
-
-    out.clear();
-    if (QRCodeSetupPayloadGenerator(payload).payloadBase38Representation(out) != CHIP_NO_ERROR)
-    {
-        return false;
-    }
-    CopyString(out, qr, qr_size);
-
-    return true;
-}
-
-// Liveness check of the Matter task: a work item that calls back into ESPurna
-extern "C" void matter_pong(void) __attribute__((weak));
-
-extern "C" void matter_ping(void)
-{
-    PlatformMgr().ScheduleWork(
-        [](intptr_t) {
-            ChipLogProgress(AppServer, "ping");
-            if (matter_pong)
-                matter_pong();
-        },
-        0);
-}
-
-// Commissioning window again (it closes after 15 minutes, or after the device was commissioned)
-extern "C" void matter_open_window(void)
-{
-    PlatformMgr().ScheduleWork(
-        [](intptr_t) {
-            auto & manager = Server::GetInstance().GetCommissioningWindowManager();
-            if (!manager.IsCommissioningWindowOpen())
-            {
-                CHIP_ERROR err = manager.OpenBasicCommissioningWindow();
-                ChipLogProgress(AppServer, "Commissioning window open: %" CHIP_ERROR_FORMAT, err.Format());
-            }
-        },
-        0);
-}
-
-extern "C" int matter_fabric_count(void)
-{
-    return Server::GetInstance().GetFabricTable().FabricCount();
-}
-
-// Controllers the device was added to (fabrics), for the list of the ESPurna WebUI: the n-th one (0..), false after the
-// last. label gets the fabric label, cut to label_size - 1
-extern "C" bool matter_fabric_info(int n, uint8_t * index, uint16_t * vendor, uint64_t * node, char * label, size_t label_size)
-{
-    bool found = false;
-    PlatformMgr().LockChipStack();
-    int position = 0;
-    for (const auto & fabric : Server::GetInstance().GetFabricTable())
-    {
-        if (position++ != n)
-        {
-            continue;
-        }
-
-        *index  = fabric.GetFabricIndex();
-        *vendor = static_cast<uint16_t>(fabric.GetVendorId());
-        *node   = fabric.GetNodeId();
-        if (label_size)
-        {
-            const auto text   = fabric.GetFabricLabel();
-            const size_t size = (text.size() < label_size) ? text.size() : (label_size - 1);
-            memcpy(label, text.data(), size);
-            label[size] = '\0';
-        }
-        found = true;
-        break;
-    }
-    PlatformMgr().UnlockChipStack();
-    return found;
-}
-
-// The device leaves a controller, like on its RemoveFabric command (the server drops the sessions, access entries and
-// group keys of the fabric, and opens the pairing window when it was the last one). In the Matter task
-extern "C" bool matter_remove_fabric(uint8_t index)
-{
-    PlatformMgr().LockChipStack();
-    const bool found = Server::GetInstance().GetFabricTable().FindFabricWithIndex(index) != nullptr;
-    PlatformMgr().UnlockChipStack();
-    if (!found)
-    {
-        return false;
-    }
-
-    PlatformMgr().ScheduleWork(
-        [](intptr_t arg) {
-            const auto fabric = static_cast<FabricIndex>(arg);
-            CHIP_ERROR err    = Server::GetInstance().GetFabricTable().Delete(fabric);
-            ChipLogProgress(AppServer, "Fabric %u removed: %" CHIP_ERROR_FORMAT, static_cast<unsigned>(fabric), err.Format());
-        },
-        static_cast<intptr_t>(index));
-    return true;
-}
+// The pairing codes, the controllers (fabric table), the pairing window and the ping of the Matter task are ESPurna's
+// (matter_app.cpp of the fork, one code with the ESP32): the server API of connectedhomeip, not the data model
