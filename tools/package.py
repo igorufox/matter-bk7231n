@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
-# The package ESPurna takes (tools/ci_build.sh for the release, tools/build.sh for a local build):
+# The package of one chip ESPurna takes (tools/ci_build.sh for the release, tools/build.sh for a local build):
 #
-#   tools/package.py <matter-bk7231n> <connectedhomeip> <gn out dir> <libMatterApp.a> <package dir> [<zip>]
+#   tools/package.py <chip> <matter-espurna> <connectedhomeip> <gn out dir> <libMatterApp.a> <package dir> [<zip>]
 #
+# <chip>: bk7231n or esp32
 #   lib/libMatterApp.a
-#   include/lwipopts.h          lwIP options the library was built with (ESPurna builds the SDK's lwIP with them)
+#   include/lwipopts.h          bk7231n: lwIP options the library was built with (ESPurna builds the SDK's lwIP with
+#                               them); the ESP32 takes lwIP as ESP-IDF has it
 #   include/chip/<root>/...     the headers of the library's API, each <root> one include folder:
 #     src, include              connectedhomeip src/ and src/include/ (headers only)
 #     nlassert, nlio            the two header libraries of connectedhomeip's third_party
 #     gen                       the build configuration headers GN wrote (gen/include of the build)
-#     gn                        app/BK7231NProjectConfig.h and external_platform/BK7231N/*.h of this repository
+#     gn                        app/*.h (the project config) and, bk7231n, external_platform/BK7231N/*.h of this
+#                               repository (the ESP32 platform headers are connectedhomeip's own, in src)
 #   include/chip/flags.txt      "-I<root>" lines (relative to include/chip) and the "-D" defines of the library's code
 #
 # ESPurna's code on the Matter API (the identity of the board, matter_identity.cpp of the fork: one code with the
@@ -39,12 +42,16 @@ def copy_headers(src, dst):
                 shutil.copyfile(path, target)
 
 
-def main(m, chip, out, lib, pkg, archive=None):
+def main(target, m, chip, out, lib, pkg, archive=None):
+    if target not in ("bk7231n", "esp32"):
+        raise SystemExit(f"package.py: unknown chip {target}")
+
     shutil.rmtree(pkg, ignore_errors=True)
     os.makedirs(os.path.join(pkg, "lib"))
     shutil.copyfile(lib, os.path.join(pkg, "lib", "libMatterApp.a"))
     os.makedirs(os.path.join(pkg, "include"))
-    shutil.copyfile(os.path.join(m, "lwip-override", "lwipopts.h"), os.path.join(pkg, "include", "lwipopts.h"))
+    if target == "bk7231n":
+        shutil.copyfile(os.path.join(m, "lwip-override", "lwipopts.h"), os.path.join(pkg, "include", "lwipopts.h"))
 
     headers = os.path.join(pkg, "include", "chip")
     roots = {
@@ -59,7 +66,9 @@ def main(m, chip, out, lib, pkg, archive=None):
 
     gn = os.path.join(headers, "gn")
     copy_headers(os.path.join(m, "gn", "app"), os.path.join(gn, "app"))
-    copy_headers(os.path.join(m, "gn", "external_platform", "BK7231N"), os.path.join(gn, "external_platform", "BK7231N"))
+    if target == "bk7231n":
+        copy_headers(os.path.join(m, "gn", "external_platform", "BK7231N"),
+                     os.path.join(gn, "external_platform", "BK7231N"))
 
     with open(os.path.join(headers, "flags.txt"), "w", newline="\n") as f:
         for name in (*roots.keys(), "gn"):

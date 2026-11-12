@@ -21,6 +21,7 @@
 #include <app/server/AppDelegate.h>
 #include <stdint.h>
 
-namespace BekenAppServer {
+// the server of the application, the same on every chip
+namespace AppServer {
 void Init(AppDelegate * context = nullptr);
-} // namespace BekenAppServer
+} // namespace AppServer

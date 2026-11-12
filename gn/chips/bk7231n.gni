@@ -1,4 +1,5 @@
-# Build arguments for the BK7231N Matter libraries (ARM968E-S, ARMv5TE, Thumb, BDK 3.0.33 / LibreTiny 1.14)
+# Build arguments of the BK7231N library (ARM968E-S, ARMv5TE, Thumb, BDK 3.0.33 / LibreTiny 1.14): gn gen
+# --args='import("//chips/bk7231n.gni")' (ref. //.gn)
 import("//build_overrides/chip.gni")
 import("//bdk/bdk_flags.gni")
 
@@ -30,11 +31,15 @@ target_cflags_cc = [
 ]
 
 # Platform layer: ours, outside the SDK tree (//external_platform/BK7231N)
+target_cpu = "arm"
+
 chip_device_platform = "external"
 chip_platform_target = "//external_platform/BK7231N"
 chip_external_platform_include_dir = "//"
 
-chip_project_config_include = ""
+# the project config of the application, the same on every chip
+chip_project_config_include = "<app/ProjectConfig.h>"
+chip_device_project_config_include = "<app/ProjectConfig.h>"
 chip_system_project_config_include = ""
 chip_ble_project_config_include = ""
 

@@ -1,7 +1,7 @@
 import("//build_overrides/build.gni")
 import("//build_overrides/chip.gni")
 
-# The data model is in chip-examples/bk7231n-plug (copied into connectedhomeip/examples by tools/build.sh)
+# The data model is in chip-examples/espurna-plug (copied into connectedhomeip/examples by the build scripts)
 group("default") {
   deps = [ "//app:MatterApp" ]
 }

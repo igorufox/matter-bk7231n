@@ -22,6 +22,23 @@ if (bk_toolchain == "native") {
   _cxx = "${_wrap} g++"
 }
 
+# ESP32: the xtensa-esp-elf GCC of the ESP-IDF of Arduino-ESP32 (crosstool-NG esp-14.2.0_20260121, the
+# toolchain-xtensa-esp-elf of pioarduino), its xtensa-esp32-elf-* commands; //third_party/esp32-toolchain is a link
+# made by tools/ci_build.sh
+_esp32 = rebase_path("//third_party/esp32-toolchain/bin/xtensa-esp32-elf-")
+
+gcc_toolchain("esp32") {
+  ar = "${_esp32}ar"
+  cc = "${_esp32}gcc"
+  cxx = "${_esp32}g++"
+
+  toolchain_args = {
+    current_os = "freertos"
+    current_cpu = "esp32"
+    is_clang = false
+  }
+}
+
 gcc_toolchain("bk7231n") {
   ar = _ar
   cc = _cc

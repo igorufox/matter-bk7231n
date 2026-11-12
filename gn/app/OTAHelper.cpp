@@ -21,7 +21,11 @@
 #include <app/clusters/ota-requestor/DefaultOTARequestor.h>
 #include <app/clusters/ota-requestor/DefaultOTARequestorStorage.h>
 #include <app/clusters/ota-requestor/ExtendedOTARequestorDriver.h>
+#if CHIP_DEVICE_LAYER_TARGET_ESP32
+#include <platform/ESP32/OTAImageProcessorImpl.h>
+#else
 #include <external_platform/BK7231N/OTAImageProcessorImpl.h>
+#endif
 #include <system/SystemEvent.h>
 
 #include <app/clusters/ota-requestor/DefaultOTARequestorUserConsent.h>

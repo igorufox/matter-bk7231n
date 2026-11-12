@@ -1,0 +1,7 @@
+# mbedTLS of ESP-IDF for the ESP32 library: its headers come with the flags of the SDK (chips/esp32_flags.gni), its
+# archives with ESPurna's link (the libraries of Arduino-ESP32). Nothing to build, as config/esp32/mbedtls of
+# connectedhomeip
+import("//build_overrides/chip.gni")
+
+group("mbedtls") {
+}

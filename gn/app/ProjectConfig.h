@@ -1,4 +1,4 @@
-/* RAM profile for BK7231N inside ESPurna. Used both as the project config (CHIP_CONFIG_*, CHIP_IM_*) and as the
+/* RAM profile of the Matter application inside ESPurna, the same on every chip (BK7231N, ESP32). Used both as the project config (CHIP_CONFIG_*, CHIP_IM_*) and as the
  * device project config (CHIP_DEVICE_CONFIG_*): gn args chip_project_config_include and
  * chip_device_project_config_include.
  * 3 fabrics (the hub, matter-server and one more; 5 with their pools cost the heap a pairing needs: a 4-relay bridge

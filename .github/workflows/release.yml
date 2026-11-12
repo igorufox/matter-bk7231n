@@ -1,7 +1,8 @@
-# Builds libMatterApp.a (tools/ci_build.sh) and publishes it as a release libmatter-<yyyymmdd>-<sha7> with
-#   matter-bk7231n-lib.zip          lib/libMatterApp.a + include/lwipopts.h
-#   matter-bk7231n-lib.zip.sha256   "<sha256>  matter-bk7231n-lib.zip"
-# ESPurna (custom_matter_lib = latest in platformio_beken.ini) takes the newest of these releases.
+# Builds libMatterApp.a for every chip (tools/ci_build.sh) and publishes it as a release libmatter-<yyyymmdd>-<sha7>
+# with, per chip (bk7231n, esp32):
+#   matter-espurna-<chip>.zip          lib/libMatterApp.a, the headers of the API (include/chip), bk7231n include/lwipopts.h
+#   matter-espurna-<chip>.zip.sha256   "<sha256>  matter-espurna-<chip>.zip"
+# ESPurna pins a release in platformio_beken.ini / platformio_esp32.ini (custom_matter_lib, scripts/matter_lib.py).
 # The newest 5 libmatter-<yyyymmdd>-<sha7> releases are kept; older ones and their tags are deleted. Releases with
 # other names (the hand-made libmatter-2026.11.06) are never touched.
 name: libMatterApp release
@@ -40,7 +41,7 @@ jobs:
           sudo apt-get install -y -q generate-ninja
           gn --version
 
-      # connectedhomeip + submodules, LibreTiny / BDK headers, gcc, zap-cli, Python venv (pins in tools/ci_build.sh;
+      # connectedhomeip + submodules, LibreTiny / BDK headers, the gccs, the ESP-IDF of Arduino-ESP32, zap-cli, Python venv (pins in tools/ci_build.sh;
       # an older cache is reused, ci_build.sh replaces whatever does not match the pins)
       - uses: actions/cache@v4
         with:
@@ -57,25 +58,31 @@ jobs:
         run: |
           set -euo pipefail
           tag="libmatter-$(date -u +%Y%m%d)-${GITHUB_SHA::7}"
-          read -r sha _ < ~/out/matter-bk7231n-lib.zip.sha256
           chip=$(git -C ~/deps/connectedhomeip log -1 --format='%h (%ad)' --date=short)
-          gcc=$(~/deps/pio/packages/toolchain-gccarmnoneeabi/bin/arm-none-eabi-gcc --version | head -1)
-          size=$(stat -c %s ~/out/pkg/lib/libMatterApp.a)
-          cat > notes.md << EOF
-          libMatterApp.a for ESPurna on the BK7231N, built from ${GITHUB_SHA::7} by tools/ci_build.sh.
-
-          - connectedhomeip ${chip}
-          - ${gcc}
-          - libMatterApp.a: ${size} bytes (debug info stripped)
-          - matter-bk7231n-lib.zip SHA-256: \`${sha}\`
-          EOF
+          gcc_bk=$(~/deps/pio/packages/toolchain-gccarmnoneeabi/bin/arm-none-eabi-gcc --version | head -1)
+          gcc_esp32=$(find ~/deps/xtensa-esp-elf -path "*/bin/xtensa-esp32-elf-gcc" | head -1)
+          gcc_esp32=$("$gcc_esp32" --version | head -1)
+          files=()
+          {
+            echo "libMatterApp.a of the Matter library of ESPurna for every chip (the same connectedhomeip, plug.zap data"
+            echo "model and application), built from ${GITHUB_SHA::7} by tools/ci_build.sh."
+            echo
+            echo "- connectedhomeip ${chip}"
+            echo "- BK7231N: ${gcc_bk}"
+            echo "- ESP32: ${gcc_esp32}, the ESP-IDF of Arduino-ESP32 3.3.12"
+            for target in bk7231n esp32; do
+              read -r sha _ < ~/out/matter-espurna-${target}.zip.sha256
+              size=$(stat -c %s ~/out/pkg-${target}/lib/libMatterApp.a)
+              echo "- matter-espurna-${target}.zip: libMatterApp.a ${size} bytes (debug info stripped), SHA-256 \`${sha}\`"
+              files+=(~/out/matter-espurna-${target}.zip ~/out/matter-espurna-${target}.zip.sha256)
+            done
+          } > notes.md
           if gh release view "$tag" > /dev/null 2>&1; then
             # the same commit built again on the same day
-            gh release upload "$tag" --clobber ~/out/matter-bk7231n-lib.zip ~/out/matter-bk7231n-lib.zip.sha256
+            gh release upload "$tag" --clobber "${files[@]}"
             gh release edit "$tag" --notes-file notes.md
           else
-            gh release create "$tag" --target "$GITHUB_SHA" --title "$tag" --notes-file notes.md --latest \
-              ~/out/matter-bk7231n-lib.zip ~/out/matter-bk7231n-lib.zip.sha256
+            gh release create "$tag" --target "$GITHUB_SHA" --title "$tag" --notes-file notes.md --latest "${files[@]}"
           fi
           echo "### $tag" >> "$GITHUB_STEP_SUMMARY"
           cat notes.md >> "$GITHUB_STEP_SUMMARY"

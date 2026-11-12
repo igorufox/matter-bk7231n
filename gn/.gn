@@ -1,5 +1,8 @@
-# GN root for the BK7231N (BDK 3.0.33 / LibreTiny) Matter build.
-# Run from WSL: see ../tools/build.sh
+# GN root of the Matter library of ESPurna, one root for every chip: the same connectedhomeip, data model (plug.zap)
+# and application (app/), the platform of the chip under it. The chip's arguments come with `gn gen`:
+#   --args='import("//chips/bk7231n.gni")'   BK7231N (BDK 3.0.33 / LibreTiny), our port external_platform/BK7231N
+#   --args='import("//chips/esp32.gni")'     ESP32 (ESP-IDF 5.5 of Arduino-ESP32), connectedhomeip's src/platform/ESP32
+# tools/ci_build.sh builds both, tools/build.sh (WSL) the BK7231N one
 import("//build_overrides/build.gni")
 
 buildconfig = "${build_root}/config/BUILDCONFIG.gn"
@@ -8,5 +11,4 @@ check_system_includes = true
 default_args = {
   target_cpu = "arm"
   target_os = "freertos"
-  import("//args.gni")
 }

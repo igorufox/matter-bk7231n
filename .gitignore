@@ -16,6 +16,10 @@
 # connectedhomeip is a separate checkout (see README.md), linked here; so is the PlatformIO home (LibreTiny headers)
 /gn/third_party/connectedhomeip
 /gn/third_party/pio
+# the ESP32 toolchain and the prebuilt ESP-IDF of Arduino-ESP32 (tools/ci_build.sh), and the flags made from it
+/gn/third_party/esp32-toolchain
+/gn/third_party/esp32-libs
+/gn/chips/esp32_flags.gni
 
 # backups
 *.orig

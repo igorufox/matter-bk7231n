@@ -16,13 +16,18 @@
  *    limitations under the License.
  */
 
-#include "BekenAppServer.h"
+#include "AppServer.h"
 #include "CHIPDeviceManager.h"
 #include <app/clusters/network-commissioning/network-commissioning.h>
 #include <app/server/Dnssd.h>
 #include <app/server/Server.h>
 #include <data-model-providers/codegen/Instance.h>
+// Wi-Fi network commissioning: the driver of the chip's platform
+#if CHIP_DEVICE_LAYER_TARGET_ESP32
+#include <platform/ESP32/NetworkCommissioningDriver.h>
+#else
 #include <external_platform/BK7231N/NetworkCommissioningDriver.h>
+#endif
 
 using namespace chip;
 using namespace chip::Credentials;
@@ -30,11 +35,15 @@ using namespace chip::DeviceLayer;
 
 namespace {
 app::Clusters::NetworkCommissioning::Instance
+#if CHIP_DEVICE_LAYER_TARGET_ESP32
+    sWiFiNetworkCommissioningInstance(0 /* Endpoint Id */, &(NetworkCommissioning::ESPWiFiDriver::GetInstance()));
+#else
     sWiFiNetworkCommissioningInstance(0 /* Endpoint Id */, &(NetworkCommissioning::BekenWiFiDriver::GetInstance()));
+#endif
 
 } // namespace
 
-void BekenAppServer::Init(AppDelegate * sAppDelegate)
+void AppServer::Init(AppDelegate * sAppDelegate)
 {
     // Init ZCL Data Model and CHIP App Server
     static chip::CommonCaseDeviceServerInitParams initParams;

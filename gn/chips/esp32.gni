@@ -1,0 +1,77 @@
+# Build arguments of the ESP32 library (Xtensa LX6, ESP-IDF 5.5 of Arduino-ESP32 3.3): gn gen
+# --args='import("//chips/esp32.gni")' (ref. //.gn). The same application and data model as the BK7231N one; the
+# platform is connectedhomeip's own src/platform/ESP32 (what esp_matter uses as well), compiled with the flags of the
+# prebuilt ESP-IDF of Arduino-ESP32 (chips/esp32_flags.gni, tools/gen_esp32_flags.py), as config/esp32 of
+# connectedhomeip does with the flags of an ESP-IDF project.
+import("//build_overrides/chip.gni")
+import("//chips/esp32_flags.gni")
+
+custom_toolchain = "//toolchain:esp32"
+target_cpu = "esp32"
+
+is_debug = false
+optimize_debug = false
+optimize_for_size = true
+symbol_level = 1
+
+target_defines = []
+target_cflags = esp32_defines + esp32_include_flags
+target_cflags_c = esp32_cflags_c
+target_cflags_cc = esp32_cflags_cc
+
+# Platform layer: connectedhomeip's ESP32 one
+chip_device_platform = "esp32"
+
+# the project config of the application, the same on every chip
+chip_project_config_include = "<app/ProjectConfig.h>"
+chip_device_project_config_include = "<app/ProjectConfig.h>"
+chip_system_project_config_include = ""
+chip_ble_project_config_include = ""
+
+# lwIP, FreeRTOS and mbedTLS of ESP-IDF (headers through target_cflags, the archives are in ESPurna's link)
+lwip_platform = "external"
+chip_system_config_use_lwip = true
+chip_system_config_use_sockets = false
+mbedtls_target = "//mbedtls_idf:mbedtls"
+
+chip_build_tests = false
+chip_build_libshell = false
+chip_config_enable_arg_parser = false
+
+# Wi-Fi only, on-network commissioning, no BLE / Thread / Ethernet (as the BK7231N one)
+chip_enable_wifi = true
+chip_enable_ethernet = false
+chip_enable_openthread = false
+chip_config_network_layer_ble = false
+chip_enable_ble = false
+chip_enable_chipoble = false
+chip_enable_additional_data_advertising = false
+chip_enable_rotating_device_id = false
+
+chip_inet_config_enable_ipv4 = true
+chip_inet_config_enable_tcp_endpoint = false
+chip_inet_config_enable_udp_endpoint = true
+# ESP-IDF's mDNS (the mdns component of the SDK, which ESPurna's mdns module uses too): one responder for both on
+# UDP 5353. The BK7231N has none, minimal mDNS of connectedhomeip there
+chip_mdns = "platform"
+
+chip_config_memory_management = "platform"
+chip_memory_alloc_mode = "default"
+chip_enable_ota_requestor = true
+
+# the identity of the board is ESPurna's (matter_identity.cpp): no factory data / secure cert providers of the platform
+chip_use_factory_data_provider = false
+chip_use_device_info_provider = false
+chip_use_secure_cert_dac_provider = false
+
+# logging: errors + progress, no detail/automation (as the BK7231N one)
+chip_logging = true
+chip_detail_logging = false
+chip_automation_logging = false
+chip_enable_transport_trace = false
+
+chip_stack_lock_tracking = "none"
+chip_use_transitional_commissionable_data_provider = true
+
+treat_warnings_as_errors = false
+chip_system_config_provide_statistics = false
