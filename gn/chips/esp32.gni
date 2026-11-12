@@ -15,7 +15,9 @@ optimize_for_size = true
 symbol_level = 1
 
 target_defines = []
-target_cflags = esp32_defines + esp32_include_flags
+# the GN root on the include path: <app/ProjectConfig.h> of the application (the BK7231N has it through
+# chip_external_platform_include_dir of its external platform)
+target_cflags = esp32_defines + [ "-I" + rebase_path("//") ] + esp32_include_flags
 target_cflags_c = esp32_cflags_c
 target_cflags_cc = esp32_cflags_cc
 
