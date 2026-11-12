@@ -160,7 +160,9 @@ cd "$M/gn"
 # one chip: <chip> <gn args> <strip>
 build() {
     echo "== build $1"
-    gn gen --check=false "$OUT/build-$1" --args="$2"
+    # no include check (`--check`, any value of it turns it on): connectedhomeip's ESP32 platform includes headers of
+    # targets it does not depend on (OTAImageProcessorImpl.h: ota-requestor), its own ESP-IDF build does not check
+    gn gen "$OUT/build-$1" --args="$2"
     ninja -j "$JOBS" -C "$OUT/build-$1" default
 
     echo "== package $1"
