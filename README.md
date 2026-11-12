@@ -8,10 +8,14 @@ with On/Off plugs, one per relay (`gn/app/plug.zap`) and a small C API that ESPu
   LibreTiny 1.14), mbedTLS 2.28 config, the application (`app/`: data model, `matter_app.cpp` with the C API,
   project config) and the platform port (`external_platform/BK7231N/`, derived from the Beken platform of
   connectedhomeip for the Armino SDK, adapted to the BDK / LibreTiny; Wi-Fi, key-value store, events and factory data
-  come from ESPurna through the `bk_*` API of `matter_pal.h`)
+  come from ESPurna through the `bk_*` API of `matter_pal.h`). The `__atomic_*` of the ARM968E-S are in the port
+  (`bk7231n_port.c`). The identity of the board (factory data or an own development DAC) is ESPurna's, one code with
+  its ESP32 build (`matter_identity.cpp` of the fork): the library calls `matter_identity_install()` before the
+  server init
 - `lwip-override/lwipopts.h` - LibreTiny's lwipopts with the sizes Matter needs; ESPurna builds lwIP with it
   (`-I.../lwip-override`) and the library is compiled against the same header
-- `tools/` - `build.sh` (WSL: gn + ninja with the Windows arm-none-eabi gcc through `wingcc.sh`), flag generators,
+- `tools/` - `build.sh` (WSL: gn + ninja with the Windows arm-none-eabi gcc through `wingcc.sh`, the package
+  unzipped in `<out>/pkg` for `ESPURNA_MATTER_LIB_DIR`), `package.py` (the package of both builds), flag generators,
   size reports
 
 connectedhomeip is not part of this repository: commit `b87051a95f` (Matter 1.5, the same commit as esp_matter 1.5.1
@@ -51,7 +55,10 @@ the Linux build of the same PlatformIO gcc package (`toolchain-gccarmnoneeabi@1.
 same pinned connectedhomeip, LibreTiny 1.14.0 and BDK packages (all pins are at the top of `ci_build.sh`). Each build
 is published as a release `libmatter-<yyyymmdd>-<sha7>`:
 
-- `matter-bk7231n-lib.zip` - `lib/libMatterApp.a` (debug info stripped) + `include/lwipopts.h`
+- `matter-bk7231n-lib.zip` - `lib/libMatterApp.a` (debug info stripped), `include/lwipopts.h` and the headers of the
+  library's API: `include/chip/` (connectedhomeip `src` + `src/include`, nlassert, nlio, the generated build config,
+  the project config and the BK7231N platform headers) with `include/chip/flags.txt` (its include folders and
+  defines). ESPurna's code on the Matter API is compiled against them (`tools/package.py`)
 - `matter-bk7231n-lib.zip.sha256`
 
 The newest 5 of these releases are kept, older ones are deleted with their tags. ESPurna takes the newest one with

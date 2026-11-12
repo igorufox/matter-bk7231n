@@ -39,3 +39,6 @@ export PYTHONPATH=$M/gn/third_party/connectedhomeip/scripts/py_matter_idl:$M/gn/
 cd $M/gn
 gn gen --check=false "$OUT"
 ninja -j 8 -k 0 -C "$OUT" ${NINJA_TARGETS:-default}
+
+# the package ESPurna takes, unzipped: ESPURNA_MATTER_LIB_DIR=<out>/pkg (lib/, include/ with the headers of the API)
+python3 "$M/tools/package.py" "$M" "$M/gn/third_party/connectedhomeip" "$OUT" "$OUT/lib/libMatterApp.a" "$OUT/pkg"

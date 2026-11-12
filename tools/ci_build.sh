@@ -8,7 +8,8 @@
 # LibreTiny + the BDK packages it uses for the BK7231N (headers only) and the Linux build of the arm-none-eabi gcc
 # LibreTiny compiles the firmware with (PlatformIO package, PLATFORMIO_CORE_DIR=<deps_dir>/pio).
 # <out_dir> gets the ninja build (build/) and the package:
-#   matter-bk7231n-lib.zip         lib/libMatterApp.a (debug info stripped) + include/lwipopts.h
+#   matter-bk7231n-lib.zip         lib/libMatterApp.a (debug info stripped), include/lwipopts.h and the headers of the
+#                                  library's API with their flags (include/chip, tools/package.py)
 #   matter-bk7231n-lib.zip.sha256  "<sha256>  matter-bk7231n-lib.zip"
 #
 # Needs git, curl, unzip, python3 with venv and gn on PATH (Ubuntu 24.04: apt install generate-ninja). The Windows
@@ -125,20 +126,8 @@ ninja -j "$JOBS" -C "$OUT/build" default
 
 echo "== package"
 rm -rf "$OUT/pkg"
-mkdir -p "$OUT/pkg/lib" "$OUT/pkg/include"
-"$GCC_BIN/arm-none-eabi-strip" --strip-debug -o "$OUT/pkg/lib/libMatterApp.a" "$OUT/build/lib/libMatterApp.a"
-cp "$M/lwip-override/lwipopts.h" "$OUT/pkg/include/lwipopts.h"
-# the same bytes for the same inputs: fixed member order and timestamps
-python3 - "$OUT/pkg" "$OUT/matter-bk7231n-lib.zip" << 'EOF'
-import sys, zipfile
-src, dst = sys.argv[1], sys.argv[2]
-with zipfile.ZipFile(dst, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as z:
-    for name in ('lib/libMatterApp.a', 'include/lwipopts.h'):
-        info = zipfile.ZipInfo(name, date_time=(2020, 1, 1, 0, 0, 0))
-        info.external_attr = 0o644 << 16
-        with open(f'{src}/{name}', 'rb') as f:
-            z.writestr(info, f.read(), compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)
-EOF
+"$GCC_BIN/arm-none-eabi-strip" --strip-debug -o "$OUT/libMatterApp.stripped.a" "$OUT/build/lib/libMatterApp.a"
+python3 "$M/tools/package.py" "$M" "$CHIP" "$OUT/build" "$OUT/libMatterApp.stripped.a" "$OUT/pkg"     "$OUT/matter-bk7231n-lib.zip"
 cd "$OUT"
 sha256sum matter-bk7231n-lib.zip > matter-bk7231n-lib.zip.sha256
 ls -l "$OUT/build/lib/libMatterApp.a" "$OUT/pkg/lib/libMatterApp.a" matter-bk7231n-lib.zip
