@@ -23,6 +23,11 @@ static_library("MatterApp") {
   if (chip_device_platform == "external") {
     public_deps += [ "//external_platform/BK7231N:bk7231n_port" ]
   }
+  # the log output of connectedhomeip (chip::Logging::Platform::LogV): the BK7231N port has it among its sources, the
+  # ESP32 platform in a target of its own (ESP_LOG)
+  if (chip_device_platform == "esp32") {
+    public_deps += [ "${chip_root}/src/platform/ESP32:logging" ]
+  }
   output_name = "libMatterApp"
   output_dir = "${root_out_dir}/lib"
   complete_static_lib = true

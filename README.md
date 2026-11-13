@@ -16,7 +16,7 @@ Arduino-ESP32, esp_matter, with another data model.)
     LibreTiny 1.14, mbedTLS 2.28 of `mbedtls/`
   - ESP32: connectedhomeip's own `src/platform/ESP32` (what esp_matter has too), compiled with the flags, include folders
     and `sdkconfig.h` of the prebuilt ESP-IDF of Arduino-ESP32 (`chips/esp32_flags.gni`, made by
-    `tools/gen_esp32_flags.py`), mbedTLS, lwIP, FreeRTOS and the mdns component of ESP-IDF (`mbedtls_idf/`)
+    `tools/gen_esp32_flags.py`), mbedTLS, lwIP and FreeRTOS of ESP-IDF (`mbedtls_idf/`); the minimal mDNS of connectedhomeip on both chips
   The identity of the board (factory data or an own development DAC), the pairing codes, the controllers and the pairing
   window are ESPurna's (`matter_identity.cpp`, `matter_app.cpp` of the fork): the library calls
   `matter_identity_install()` before the server init
@@ -65,7 +65,7 @@ connectedhomeip, LibreTiny 1.14.0 / BDK packages and Arduino-ESP32 3.3.12 librar
 `ci_build.sh`). Each build is published as a release `libmatter-<yyyymmdd>-<sha7>` with, per chip (`bk7231n`, `esp32`):
 
 - `matter-espurna-<chip>.zip` - `lib/libMatterApp.a` (debug info stripped) and the headers of the library's API:
-  `include/chip/` (connectedhomeip `src` + `src/include`, nlassert, nlio, the generated build config, the project
+  `include/chip/` (connectedhomeip `src` + `src/include`, the generated `zzz_generated/app-common`, nlassert, nlio, the generated build config, the project
   config; bk7231n also its platform headers and `include/lwipopts.h`) with `include/chip/flags.txt` (its include
   folders and defines). ESPurna's code on the Matter API is compiled against them (`tools/package.py`)
 - `matter-espurna-<chip>.zip.sha256`

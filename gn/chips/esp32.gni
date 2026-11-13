@@ -53,9 +53,9 @@ chip_enable_rotating_device_id = false
 chip_inet_config_enable_ipv4 = true
 chip_inet_config_enable_tcp_endpoint = false
 chip_inet_config_enable_udp_endpoint = true
-# ESP-IDF's mDNS (the mdns component of the SDK, which ESPurna's mdns module uses too): one responder for both on
-# UDP 5353. The BK7231N has none, minimal mDNS of connectedhomeip there
-chip_mdns = "platform"
+# the minimal mDNS of connectedhomeip, as on the BK7231N: one mDNS of Matter on both chips (not the mdns component of
+# ESP-IDF)
+chip_mdns = "minimal"
 
 chip_config_memory_management = "platform"
 chip_memory_alloc_mode = "default"

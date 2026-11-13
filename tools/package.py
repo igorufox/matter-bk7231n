@@ -9,6 +9,8 @@
 #                               them); the ESP32 takes lwIP as ESP-IDF has it
 #   include/chip/<root>/...     the headers of the library's API, each <root> one include folder:
 #     src, include              connectedhomeip src/ and src/include/ (headers only)
+#     app-common                connectedhomeip zzz_generated/app-common (the generated cluster headers:
+#                               app-common/zap-generated/cluster-enums.h ...)
 #     nlassert, nlio            the two header libraries of connectedhomeip's third_party
 #     gen                       the build configuration headers GN wrote (gen/include of the build)
 #     gn                        app/*.h (the project config) and, bk7231n, external_platform/BK7231N/*.h of this
@@ -57,6 +59,7 @@ def main(target, m, chip, out, lib, pkg, archive=None):
     roots = {
         "src": os.path.join(chip, "src"),
         "include": os.path.join(chip, "src", "include"),
+        "app-common": os.path.join(chip, "zzz_generated", "app-common"),
         "nlassert": os.path.join(chip, "third_party", "nlassert", "repo", "include"),
         "nlio": os.path.join(chip, "third_party", "nlio", "repo", "include"),
         "gen": os.path.join(out, "gen", "include"),
