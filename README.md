@@ -59,8 +59,8 @@ Fixes that made the speaker hub keep the device (2026-11-05):
 
 GitHub Actions (`.github/workflows/release.yml`) build the library after every push to `main` that changes `gn/`,
 `lwip-override/`, `tools/` or the workflow (and on "Run workflow"): `tools/ci_build.sh` on Ubuntu 24.04, natively with
-the Linux builds of the same compilers (BK7231N: the PlatformIO package `toolchain-gccarmnoneeabi@1.100301.220327`,
-GCC 10.3.1; ESP32: crosstool-NG `esp-14.2.0_20260121`, the `toolchain-xtensa-esp-elf` of pioarduino) and the same pinned
+the Linux builds of the same compilers (BK7231N: the PlatformIO package `toolchain-gccarmnoneeabi@1.140201.0`,
+GCC 14.2.1, as ESPurna's Beken build; ESP32: crosstool-NG `esp-14.2.0_20260121`, the `toolchain-xtensa-esp-elf` of pioarduino) and the same pinned
 connectedhomeip, LibreTiny 1.14.0 / BDK packages and Arduino-ESP32 3.3.12 libraries (all pins are at the top of
 `ci_build.sh`). Each build is published as a release `libmatter-<yyyymmdd>-<sha7>` with, per chip (`bk7231n`, `esp32`):
 

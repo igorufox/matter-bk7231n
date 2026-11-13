@@ -82,7 +82,7 @@ typedef struct
 {
     int disconnect_reason;
     bool local_generated;
-} wifi_event_sta_disconnected_t;
+} matter_wifi_sta_disconnected_t;
 
 /* Wi-Fi STA (BDK: bk_wlan_start_sta / network_InitTypeDef_st; in ESPurna this goes through its wifi module) */
 typedef enum

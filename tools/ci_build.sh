@@ -31,8 +31,10 @@ CHIP_COMMIT=b87051a95fc110c0cfbac278f232df55c89866de
 CHIP_SUBMODULES="third_party/nlassert/repo third_party/nlio/repo third_party/mbedtls/repo third_party/jsoncpp/repo
                  third_party/pigweed/repo"
 ZAP_VERSION=v2025.10.23-nightly          # scripts/setup/zap.version of that commit
-GCC_PACKAGE=platformio/toolchain-gccarmnoneeabi@1.100301.220327   # GCC 10.3.1 (10.3-2021.10), LibreTiny BK7231N
-GCC_VERSION=10.3.1
+# BK7231N: GCC 14.2.1 (Arm GNU Toolchain 14.2.Rel1), the one ESPurna's Beken build takes instead of LibreTiny's 10.3
+# (ESPurna libraries.ini beken_toolchain, U25): one compiler for the firmware and this library
+GCC_PACKAGE=platformio/toolchain-gccarmnoneeabi@1.140201.0
+GCC_VERSION=14.2.1
 # ESP32: the gcc and the prebuilt ESP-IDF 5.5 of Arduino-ESP32 3.3.12 (pioarduino platform 55.03.312 of ESPurna's
 # libraries.ini: framework-arduinoespressif32-libs, toolchain-xtensa-esp-elf 14.2.0+20260121)
 ESP32_GCC_URL=https://github.com/espressif/crosstool-NG/releases/download/esp-14.2.0_20260121/xtensa-esp-elf-14.2.0_20260121-x86_64-linux-gnu.tar.xz
@@ -89,6 +91,10 @@ if [ ! -f "$VENV/.ci-done" ]; then
 fi
 
 GCC_BIN=$PIO/packages/toolchain-gccarmnoneeabi/bin
+# a cache of an older pin (restore-keys) has another gcc there: replaced, not kept
+if [ -x "$GCC_BIN/arm-none-eabi-gcc" ] && ! "$GCC_BIN/arm-none-eabi-gcc" --version | head -1 | grep -q " $GCC_VERSION "; then
+    rm -rf "$PIO/packages/toolchain-gccarmnoneeabi"
+fi
 if [ ! -x "$GCC_BIN/arm-none-eabi-gcc" ]; then
     echo "== $GCC_PACKAGE"
     PLATFORMIO_CORE_DIR=$PIO "$VENV/bin/pio" pkg install -g -t "$GCC_PACKAGE"

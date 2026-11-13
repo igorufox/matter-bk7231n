@@ -316,8 +316,8 @@ int ConnectivityManagerImpl::wlan_event_cb(void * arg, event_module_t event_modu
     case EVENT_WIFI_STA_DISCONNECTED:
         stationConnected = false;
         ChipLogProgress(DeviceLayer, "wlan_event_cb EVENT_WIFI_STA_DISCONNECTED");
-        wifi_event_sta_disconnected_t * sta_disconnected;
-        sta_disconnected = (wifi_event_sta_disconnected_t *) event_data;
+        matter_wifi_sta_disconnected_t * sta_disconnected;
+        sta_disconnected = (matter_wifi_sta_disconnected_t *) event_data;
         ChipDeviceEvent myevent;
         myevent.Platform.BKSystemEvent.Data.WiFiStaDisconnected = sta_disconnected->disconnect_reason;
         NetworkCommissioning::BekenWiFiDriver::GetInstance().SetLastDisconnectReason(&myevent);
