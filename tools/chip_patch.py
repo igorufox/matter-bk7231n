@@ -20,7 +20,8 @@ def esp32(chip):
     patched = re.sub(r'\n\s*if \(chip_mdns == "platform"\) \{\s*sources \+= \[ "DnssdImpl\.cpp" \]\s*\}', "\n", text)
     patched = re.sub(r'\n\s*if \(chip_mdns == "platform"\) \{\s*sources \+= \[\s*"ESP32DnssdImpl\.cpp",\s*'
                      r'"ESP32DnssdImpl\.h",\s*\]\s*\}', "\n", patched)
-    if "DnssdImpl.cpp" in patched:
+    # the exact names: OpenThread's "../OpenThread/OpenThreadDnssdImpl.cpp" stays (not built, no OpenThread here)
+    if ('"DnssdImpl.cpp"' in patched) or ('"ESP32DnssdImpl.cpp"' in patched):
         raise SystemExit(f"{path}: the DNS-SD sources of the ESP32 platform are still there (a new layout?)")
     if patched != text:
         with open(path, "w", encoding="utf-8") as f:
