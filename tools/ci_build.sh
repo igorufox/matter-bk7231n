@@ -149,6 +149,8 @@ done
 # the data model target has to live under connectedhomeip/examples (visibility of src/app:required-privileges)
 mkdir -p "$CHIP/examples/espurna-plug"
 cp "$M/gn/chip-examples/espurna-plug/BUILD.gn" "$CHIP/examples/espurna-plug/BUILD.gn"
+# the DNS-SD of the ESP32 platform goes, the library's own takes its place (tools/chip_patch.py)
+python3 "$M/tools/chip_patch.py" "$CHIP"
 # the flags of the prebuilt ESP-IDF for the ESP32 build
 python3 "$M/tools/gen_esp32_flags.py" "$ESP32_SDK" "$M/gn/chips/esp32_flags.gni"
 

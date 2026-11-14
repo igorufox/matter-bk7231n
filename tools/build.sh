@@ -30,6 +30,7 @@ junction pio "$PIO_DIR"
 # the data model target has to live under connectedhomeip/examples (visibility of src/app:required-privileges)
 mkdir -p "$CHIP_DIR/examples/espurna-plug"
 cp "$M/gn/chip-examples/espurna-plug/BUILD.gn" "$CHIP_DIR/examples/espurna-plug/BUILD.gn"
+python3 "$M/tools/chip_patch.py" "$CHIP_DIR"
 
 echo "connectedhomeip: $(git -C "$CHIP_DIR" log -1 --format='%h %ad' --date=short), zap: $ZAP_DIR"
 . $M/.venv-wsl/bin/activate

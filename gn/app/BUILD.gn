@@ -28,6 +28,12 @@ static_library("MatterApp") {
   if (chip_device_platform == "esp32") {
     public_deps += [ "${chip_root}/src/platform/ESP32:logging" ]
   }
+  # mDNS: ESPurna's one responder publishes Matter's services on both chips (chip_mdns = "platform"; the ESP32
+  # platform's DNS-SD on ESP-IDF's mdns is taken out by tools/chip_patch.py)
+  if (chip_mdns == "platform") {
+    sources += [ "../platform/EspurnaDnssd.cpp" ]
+    public_deps += [ "${chip_root}/src/lib/dnssd:platform_header" ]
+  }
   output_name = "libMatterApp"
   output_dir = "${root_out_dir}/lib"
   complete_static_lib = true
